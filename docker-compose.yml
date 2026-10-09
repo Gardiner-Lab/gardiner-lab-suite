@@ -73,6 +73,46 @@ services:
     expose:
       - "5001"
 
+  backup:
+    build: ./backup
+    image: lab-suite-backup:local
+    container_name: lab-backup
+    volumes:
+      # Read-only: the backup never needs to change the live data.
+      - moclo-data:/moclo:ro
+      - editor-data:/data:ro
+      # The network drive, mounted on the host. See docs/BACKUP.md.
+      - ${BACKUP_DEST:-./backups}:/backup
+      # The stack's own configuration, so a rebuild needs no guesswork.
+      - ./:/config:ro
+    environment:
+      - TZ=${TZ:-Europe/Amsterdam}
+      - BACKUP_HOUR=${BACKUP_HOUR:-2}
+      - BACKUP_MINUTE=${BACKUP_MINUTE:-30}
+      - KEEP_DAILY=${KEEP_DAILY:-14}
+      - KEEP_WEEKLY=${KEEP_WEEKLY:-8}
+      - KEEP_MONTHLY=${KEEP_MONTHLY:-12}
+      # Optional: a URL to POST to when a backup fails (Slack, Teams, ntfy...).
+      - NOTIFY_URL=${NOTIFY_URL:-}
+      - NOTIFY_ON_SUCCESS=${NOTIFY_ON_SUCCESS:-}
+    restart: unless-stopped
+
+  # Restoring needs write access to the volumes, which the nightly backup
+  # deliberately does not have. Kept behind a profile so it never starts with
+  # the stack; `make restore` is the way in.
+  restore:
+    build: ./backup
+    image: lab-suite-backup:local
+    container_name: lab-restore
+    profiles: ["restore"]
+    volumes:
+      - moclo-data:/moclo
+      - editor-data:/data
+      - ${BACKUP_DEST:-./backups}:/backup
+    environment:
+      - TZ=${TZ:-Europe/Amsterdam}
+    command: ["restore", "--list"]
+
 volumes:
   # Created by whichever tool starts first and shared by both.
   moclo-data:

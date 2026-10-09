@@ -1,4 +1,4 @@
-.PHONY: help up down logs pull update restart-proxy local check
+.PHONY: help up down logs pull update restart-proxy local check         backup backup-init backup-check backup-list backup-logs restore restore-check
 
 help:
 	@echo "Gardiner Lab Tools - available commands"
@@ -10,6 +10,15 @@ help:
 	@echo "restart-proxy - Reload the landing page and routing only"
 	@echo "local         - Build the editor from ../plasmid-editor instead of pulling"
 	@echo "check         - Verify every route answers"
+	@echo ""
+	@echo "Backups"
+	@echo "  backup-init   - Mark the mounted network drive as the backup destination (once)"
+	@echo "  backup        - Take a backup now, instead of waiting for the nightly run"
+	@echo "  backup-check  - Destination, free space and the last run's result"
+	@echo "  backup-list   - List the archives held"
+	@echo "  backup-logs   - Follow the backup container's log"
+	@echo "  restore-check - Verify an archive without changing anything (ARCHIVE=...)"
+	@echo "  restore       - Restore from an archive (ARCHIVE=latest), stack stopped"
 
 up:
 	docker compose up -d
@@ -32,3 +41,32 @@ local:
 
 check:
 	./scripts/check.sh
+
+# --- backups ----------------------------------------------------------------
+
+backup-init:
+	docker compose run --rm backup init
+
+backup:
+	docker compose run --rm backup now
+
+backup-check:
+	docker compose run --rm backup check
+
+backup-list:
+	docker compose --profile restore run --rm restore restore --list
+
+backup-logs:
+	docker compose logs -f backup
+
+restore-check:
+	docker compose --profile restore run --rm restore restore --dry-run $(or $(ARCHIVE),latest)
+
+# Restoring replaces the live databases, so the applications are stopped first
+# and started again afterwards. The replaced files are kept as .before-restore.
+restore:
+	@echo "Stopping the applications so nothing writes during the restore..."
+	docker compose stop moclo editor
+	docker compose --profile restore run --rm restore restore $(or $(ARCHIVE),latest)
+	docker compose start moclo editor
+	@echo "Applications restarted."

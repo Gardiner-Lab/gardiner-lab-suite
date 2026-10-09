@@ -1,0 +1,6 @@
+# Shell scripts and Dockerfiles run inside Linux containers: they must keep LF
+# line endings whatever the checkout platform does, or the shebang line breaks
+# with "not found".
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf

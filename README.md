@@ -129,10 +129,17 @@ instead, put Caddy or nginx with certificates in front of `SUITE_PORT`, and set
 
 ## Backups
 
-Each tool backs up its own data:
+The stack backs itself up to a network drive every night: all three databases
+via SQLite's online backup, plus the stack's configuration, verified and
+checksummed, with daily/weekly/monthly retention.
 
-- MoClo: `backup-prod.sh` in its repository (parts and main databases)
-- Plasmid Editor: `scripts/backup.sh` in its repository (its own database)
+```bash
+make backup-init     # once, with the network drive mounted
+make backup-check    # is it working?
+make restore         # put the latest backup back
+```
 
-The `moclo-data` volume holds the shared databases, so a MoClo backup also
-captures the parts the editor has contributed or edited.
+Full setup, monitoring and restore instructions are in
+[docs/BACKUP.md](docs/BACKUP.md). The backup container reports itself
+`unhealthy` in `docker ps` if a run fails or none has succeeded in 36 hours, and
+can POST to a webhook on failure.
