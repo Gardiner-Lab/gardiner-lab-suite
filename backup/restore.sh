@@ -14,7 +14,9 @@
 
 set -u
 
-DEST="${BACKUP_DEST:-/backup}"
+SETTINGS="${CONFIG_STORE:-/config-store}/settings.json"
+DEST="$(jq -r '.destination // empty' "$SETTINGS" 2>/dev/null)"
+[ -n "$DEST" ] || DEST="${BACKUP_DEST:-/backup}"
 WORK="/tmp/restore-work"
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
@@ -100,14 +102,27 @@ restore_db() {
     [ -f "$src" ] || { say "  $name: not in this archive, leaving the current one alone"; return 0; }
     target_dir="$(dirname "$target")"
     [ -d "$target_dir" ] || { say "  $name: $target_dir is not mounted, skipping"; return 0; }
+    # The applications run as an unprivileged user while this runs as root.
+    # Without putting the ownership back, a restore leaves every database
+    # readable but not writable: the tools come up and then fail on first save.
     if [ -f "$target" ]; then
+        owner="$(stat -c '%u:%g' "$target" 2>/dev/null)"
+        mode="$(stat -c '%a' "$target" 2>/dev/null)"
         cp "$target" "$target.before-restore" 2>/dev/null \
             && say "  $name: current database kept as $(basename "$target").before-restore"
+    else
+        owner="$(stat -c '%u:%g' "$target_dir" 2>/dev/null)"
+        mode="644"
     fi
     cp -f "$src" "$target" || die "could not write $target (is the volume mounted read-write?)"
     # WAL side files from the old database would contradict the restored one.
     rm -f "$target-wal" "$target-shm"
-    say "  $name: restored to $target"
+    if [ -n "$owner" ]; then
+        chown "$owner" "$target" 2>/dev/null
+        chown "$owner" "$target.before-restore" 2>/dev/null
+    fi
+    [ -n "$mode" ] && chmod "$mode" "$target" 2>/dev/null
+    say "  $name: restored to $target (owner $owner)"
 }
 
 say "Restoring..."

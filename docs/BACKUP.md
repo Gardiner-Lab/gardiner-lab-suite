@@ -3,7 +3,12 @@
 The stack backs itself up to a network drive every night. This document covers
 setting that up, checking it is working, and restoring.
 
-The short version:
+Most of it is done from the **backup console** on the landing page, at
+`/backup/`. Sign in with a Plasmid Editor administrator account.
+
+There you can set where backups are kept, run one now, see what is held,
+download an archive, upload one from another machine, and restore. The
+equivalent commands are below for when a browser is not to hand:
 
 ```bash
 make backup-init     # once, with the network drive mounted
@@ -30,6 +35,40 @@ running and the copy is never caught mid-write. Copying a live `.db` file with
 server. Losing those keys costs everyone a fresh login, nothing more — keep
 them in your password manager. To include it anyway, drop the `--exclude='.env'`
 from `backup/backup.sh`.
+
+## The backup console
+
+`http://your-server:8080/backup/`, or the **Backups** card on the landing page.
+
+It asks for a Plasmid Editor **administrator** account rather than adding
+another password. Everything behind that sign-in can overwrite lab data, so if
+the server is reachable from outside the building, restrict the `/backup/`
+location in `nginx/default.conf` to your network:
+
+```nginx
+location /backup/ {
+    allow 192.168.0.0/16;
+    deny all;
+    ...
+}
+```
+
+The destination you type there must be under one of `ALLOWED_BACKUP_ROOTS`
+(`/mnt` and `/backup` by default), and the host's `${BACKUP_ROOT}` is mounted at
+`/mnt` in the container. So mount the network share anywhere under `/mnt` on the
+server and the console can use it.
+
+## Moving to another machine
+
+1. On the old server: **Back up now**, then **Download** the newest archive.
+2. On the new server: install Docker, clone this repository, create `.env`, and
+   `docker compose up -d`.
+3. Open `/backup/` there, sign in, press **Upload an archive**, choose the file,
+   then **Restore** it.
+
+Accounts, plasmids, parts, sequencing reads and verifications all travel in the
+archive. Only the secrets in `.env` do not; generate fresh ones on the new
+machine, which costs everyone a new login and nothing else.
 
 ## Setting up the network drive
 
@@ -131,7 +170,16 @@ Nothing is overwritten blindly:
 - the archive's checksum is verified first, and a mismatched archive is refused;
 - every database is integrity-checked *before* anything live is touched;
 - the databases being replaced are kept beside the new ones as
-  `*.db.before-restore`.
+  `*.db.before-restore`;
+- the ownership of each database is preserved, so the applications can still
+  write to it afterwards. (Restores run as root while the applications run as an
+  unprivileged user: without this they would come back up able to read but not
+  save, which looks like success until the first edit.)
+
+A restore from the console does **not** stop the applications. It replaces each
+database through SQLite's online backup API, which takes the write lock and
+swaps the contents page by page, so readers see the old data until it completes
+and never a half-written file. Ask people to reload the page afterwards.
 
 Once you are satisfied, remove the `.before-restore` copies to reclaim the
 space:

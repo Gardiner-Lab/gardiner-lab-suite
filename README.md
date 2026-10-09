@@ -133,6 +133,13 @@ The stack backs itself up to a network drive every night: all three databases
 via SQLite's online backup, plus the stack's configuration, verified and
 checksummed, with daily/weekly/monthly retention.
 
+Most of it is done from the **backup console**, reachable from the landing page
+or at `/backup/`: choose where backups go, run one now, download or upload an
+archive, and restore. It asks for a Plasmid Editor administrator account.
+
+Moving to a new machine is download-then-upload: take a backup, download the
+archive, install the stack elsewhere, upload it in that console and restore.
+
 ```bash
 make backup-init     # once, with the network drive mounted
 make backup-check    # is it working?

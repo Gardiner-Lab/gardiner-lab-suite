@@ -10,7 +10,9 @@
 #   restore ...   hand over to restore.sh
 
 set -u
-DEST="${BACKUP_DEST:-/backup}"
+SETTINGS_FILE="${CONFIG_STORE:-/config-store}/settings.json"
+DEST="$(jq -r '.destination // empty' "$SETTINGS_FILE" 2>/dev/null)"
+[ -n "$DEST" ] || DEST="${BACKUP_DEST:-/backup}"
 
 case "${1:-schedule}" in
 
@@ -53,18 +55,32 @@ EOF
     exec /usr/local/bin/restore.sh "$@"
     ;;
 
+  api)
+    # The backup console: settings, run now, download/upload, restore.
+    exec python3 /usr/local/bin/app.py
+    ;;
+
   schedule)
-    HOUR="${BACKUP_HOUR:-2}"
-    MIN="${BACKUP_MINUTE:-30}"
-    mkdir -p /etc/crontabs
-    echo "$MIN $HOUR * * * /usr/local/bin/backup.sh >/proc/1/fd/1 2>/proc/1/fd/2" > /etc/crontabs/root
-    echo "Backup scheduled daily at $(printf '%02d:%02d' "$HOUR" "$MIN") ${TZ:-UTC}, writing to $DEST"
-    if [ ! -f "$DEST/.backup-target" ]; then
-        echo "WARNING: $DEST is not marked as a backup destination yet."
-        echo "         Run 'make backup-init' once, with the network drive mounted."
-    fi
-    # -f foreground, -d 8 so cron's own messages reach the container log.
-    exec crond -f -d 8
+    # A loop rather than cron, so a schedule changed in the console takes
+    # effect without restarting anything.
+    SETTINGS="${CONFIG_STORE:-/config-store}/settings.json"
+    LAST_RUN="${CONFIG_STORE:-/config-store}/.last-run-day"
+    echo "Backup scheduler started (settings: $SETTINGS)"
+    while true; do
+        hour="$(jq -r '.hour // 2' "$SETTINGS" 2>/dev/null || echo 2)"
+        minute="$(jq -r '.minute // 30' "$SETTINGS" 2>/dev/null || echo 30)"
+        enabled="$(jq -r '.enabled // true' "$SETTINGS" 2>/dev/null || echo true)"
+        want="$(printf '%02d:%02d' "$hour" "$minute" 2>/dev/null || echo 02:30)"
+        now="$(date +%H:%M)"
+        today="$(date +%F)"
+        if [ "$enabled" = "true" ] && [ "$now" = "$want" ] \
+           && [ "$(cat "$LAST_RUN" 2>/dev/null || echo none)" != "$today" ]; then
+            echo "$today" > "$LAST_RUN"
+            echo "Running the scheduled backup for $today"
+            /usr/local/bin/backup.sh || echo "scheduled backup failed"
+        fi
+        sleep 30
+    done
     ;;
 
   *)

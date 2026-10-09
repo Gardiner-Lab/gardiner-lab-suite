@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backups · Gardiner Lab Tools</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128190;</text></svg>">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #2563eb; --primary-hover: #1d4ed8; --text: #1f2937; --muted: #6b7280;
+    --border: #e5e7eb; --bg: #f9fafb; --card: #ffffff; --ok: #10b981; --bad: #ef4444;
+    --warn: #f59e0b;
+    --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+         line-height: 1.6; color: var(--text); background: var(--bg); min-height: 100vh; }
+  .wrap { max-width: 56rem; margin: 0 auto; padding: 0 1rem 3rem; }
+  header { background: var(--card); border-bottom: 1px solid var(--border); padding: .9rem 0; margin-bottom: 1.5rem; }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 0; }
+  .brand { font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: .4rem; text-decoration: none; }
+  .who { font-size: .85rem; color: var(--muted); display: flex; gap: .6rem; align-items: center; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: .5rem;
+          box-shadow: var(--shadow); padding: 1.25rem; margin-bottom: 1.25rem; }
+  .card h2 { font-size: 1rem; font-weight: 650; margin-bottom: .25rem; }
+  .card p.hint { color: var(--muted); font-size: .85rem; margin-bottom: .85rem; }
+
+  label { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); margin-bottom: .25rem; }
+  input, select { width: 100%; padding: .45rem .6rem; border: 1px solid var(--border);
+                  border-radius: .375rem; font-size: .9rem; font-family: inherit; color: inherit; }
+  input:focus, select:focus { outline: 2px solid #bfdbfe; outline-offset: -1px; border-color: var(--primary); }
+  .row { display: flex; gap: .75rem; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 6rem; }
+  .field { margin-bottom: .85rem; }
+
+  .btn { display: inline-flex; align-items: center; gap: .4rem; justify-content: center;
+         padding: .45rem .9rem; border: 1px solid transparent; border-radius: .375rem;
+         background: var(--primary); color: #fff; font-size: .9rem; font-weight: 500;
+         cursor: pointer; font-family: inherit; }
+  .btn:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-secondary { background: var(--card); color: var(--text); border-color: var(--border); }
+  .btn-secondary:hover:not(:disabled) { background: var(--bg); color: var(--primary); }
+  .btn-danger { background: var(--bad); }
+  .btn-sm { padding: .25rem .6rem; font-size: .8rem; }
+  .btns { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+
+  .alert { padding: .7rem .9rem; border-radius: .375rem; margin-bottom: 1rem; font-size: .9rem; border: 1px solid transparent; }
+  .alert-bad { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+  .alert-ok { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+  .alert-warn { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+  .alert-info { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+
+  .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; }
+  .stat { background: var(--bg); border-radius: .375rem; padding: .6rem .75rem; }
+  .stat .k { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .stat .v { font-weight: 600; font-size: .95rem; word-break: break-all; }
+  .dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .3rem; }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); } .dot.warn { background: var(--warn); }
+
+  table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--border); }
+  th { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:hover { background: var(--bg); }
+  .mono { font-family: var(--mono); font-size: .8rem; }
+  .scroll { max-height: 22rem; overflow: auto; }
+
+  pre.out { background: #111827; color: #e5e7eb; padding: .75rem; border-radius: .375rem;
+            font-size: .75rem; overflow: auto; max-height: 14rem; white-space: pre-wrap; }
+  .login { max-width: 22rem; margin: 3rem auto; }
+  .modal-back { position: fixed; inset: 0; background: rgba(17,24,39,.5); display: flex;
+                align-items: center; justify-content: center; padding: 1rem; z-index: 50; }
+  .modal { background: var(--card); border-radius: .5rem; box-shadow: var(--shadow-lg); max-width: 32rem; width: 100%; }
+  .modal-head { padding: .9rem 1.1rem; border-bottom: 1px solid var(--border); font-weight: 600; }
+  .modal-body { padding: 1.1rem; }
+  .modal-foot { padding: .85rem 1.1rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: .5rem; }
+  .spin { display: inline-block; width: .9rem; height: .9rem; border: 2px solid var(--border);
+          border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <a class="brand" href="/">&#128190; Backups</a>
+    <div class="who" id="who"></div>
+  </div>
+</header>
+
+<div class="wrap" id="main"></div>
+
+<script>
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const bytes = (n) => {
+  if (n === null || n === undefined) return '—';
+  const units = ['B', 'kB', 'MB', 'GB', 'TB'];
+  let i = 0, v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
+};
+
+async function api(method, path, body, isForm) {
+  const init = { method, credentials: 'same-origin', headers: {} };
+  if (isForm) init.body = body;
+  else if (body !== undefined) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(body); }
+  const res = await fetch(path, init);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(data.error || `Request failed (${res.status})`); e.data = data; throw e; }
+  return data;
+}
+
+let STATE = { status: null, archives: [] };
+
+function notice(kind, html) {
+  const box = $('#notice');
+  if (box) box.innerHTML = `<div class="alert alert-${kind}">${html}</div>`;
+}
+
+/* --- login ---------------------------------------------------------------- */
+function renderLogin(message) {
+  $('#who').innerHTML = '';
+  $('#main').innerHTML = `
+    <div class="login card">
+      <h2>Backup console</h2>
+      <p class="hint">Sign in with a Plasmid Editor <b>administrator</b> account.</p>
+      <div id="loginError"></div>
+      <form id="loginForm">
+        <div class="field"><label for="u">Username</label><input id="u" autocomplete="username" required></div>
+        <div class="field"><label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required></div>
+        <button class="btn" style="width:100%" type="submit">Sign in</button>
+      </form>
+    </div>`;
+  if (message) $('#loginError').innerHTML = `<div class="alert alert-bad">${esc(message)}</div>`;
+  $('#loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await api('POST', 'api/login', { username: $('#u').value, password: $('#p').value });
+      start();
+    } catch (err) { renderLogin(err.message); }
+  });
+}
+
+/* --- main console --------------------------------------------------------- */
+function renderConsole() {
+  const s = STATE.status;
+  const set = s.settings;
+  const ready = s.destination_exists && s.destination_marked && s.destination_writable;
+  const last = s.last_run || {};
+
+  $('#who').innerHTML = `<span>👤 ${esc(s.username || '')}</span>
+    <button class="btn btn-sm btn-secondary" id="logout">Sign out</button>`;
+
+  $('#main').innerHTML = `
+    <div id="notice"></div>
+
+    <div class="card">
+      <h2>Where backups are kept</h2>
+      <p class="hint">
+        A path on the server, normally a mounted network drive. It must be under
+        ${s.allowed_roots.map((r) => `<code>${esc(r)}</code>`).join(' or ')} —
+        mount the share there on the server first.
+      </p>
+      <div class="field">
+        <label for="dest">Backup destination</label>
+        <input id="dest" class="mono" value="${esc(set.destination)}" placeholder="/mnt/labbackup/lab-suite">
+      </div>
+      <div class="btns">
+        <button class="btn" id="useDest">Use this folder</button>
+        <span class="hint" style="margin:0">Creates it if needed and marks it as the backup drive.</span>
+      </div>
+      ${ready ? '' : `<div class="alert alert-warn" style="margin-top:.85rem">
+        ${s.destination_exists
+          ? (s.destination_marked ? 'The destination is not writable by the server.'
+                                  : 'This folder is not marked as a backup destination yet. Press “Use this folder”.')
+          : 'This folder does not exist on the server yet. Press “Use this folder” to create it.'}
+      </div>`}
+    </div>
+
+    <div class="card">
+      <h2>Status</h2>
+      <div class="status-grid">
+        <div class="stat"><div class="k">Destination</div><div class="v mono">${esc(set.destination)}</div></div>
+        <div class="stat"><div class="k">Ready</div><div class="v">
+          <span class="dot ${ready ? 'ok' : 'bad'}"></span>${ready ? 'yes' : 'not yet'}</div></div>
+        <div class="stat"><div class="k">Last backup</div><div class="v">
+          <span class="dot ${last.status === 'ok' ? 'ok' : last.status ? 'bad' : 'warn'}"></span>
+          ${last.status ? esc(last.status) : 'none yet'}</div>
+          <div class="hint" style="margin:0">${esc((last.finished_at || '').replace('T', ' ').replace('Z', ''))}</div></div>
+        <div class="stat"><div class="k">Archives</div><div class="v">${s.archive_count}</div></div>
+        <div class="stat"><div class="k">Free space</div><div class="v">${bytes(s.disk.free)}</div></div>
+      </div>
+      ${last.status === 'failed' ? `<div class="alert alert-bad" style="margin-top:.85rem">
+        Last run failed: ${esc(last.detail || '')}</div>` : ''}
+      <div class="btns" style="margin-top:.9rem">
+        <button class="btn" id="runNow" ${ready ? '' : 'disabled'}>Back up now</button>
+        <label class="btn btn-secondary" for="uploadFile" style="margin:0">
+          Upload an archive
+          <input type="file" id="uploadFile" accept=".gz,.tar.gz" hidden>
+        </label>
+        <span class="hint" style="margin:0">Moving to a new machine? Download an archive below, then upload it here.</span>
+      </div>
+      <div id="runOut" style="margin-top:.75rem"></div>
+    </div>
+
+    <div class="card">
+      <h2>Schedule and retention</h2>
+      <p class="hint">A backup runs automatically each day at this time.</p>
+      <div class="row">
+        <div class="field"><label for="hour">Hour</label><input id="hour" type="number" min="0" max="23" value="${set.hour}"></div>
+        <div class="field"><label for="minute">Minute</label><input id="minute" type="number" min="0" max="59" value="${set.minute}"></div>
+        <div class="field"><label for="kd">Keep daily</label><input id="kd" type="number" min="1" max="365" value="${set.keep_daily}"></div>
+        <div class="field"><label for="kw">Keep weekly</label><input id="kw" type="number" min="0" max="520" value="${set.keep_weekly}"></div>
+        <div class="field"><label for="km">Keep monthly</label><input id="km" type="number" min="0" max="240" value="${set.keep_monthly}"></div>
+      </div>
+      <div class="btns">
+        <button class="btn btn-secondary" id="saveSchedule">Save schedule</button>
+        <label class="hint" style="margin:0;display:flex;gap:.4rem;align-items:center">
+          <input type="checkbox" id="enabled" ${set.enabled ? 'checked' : ''} style="width:auto"> Run automatically
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Archives</h2>
+      <p class="hint">Newest first. Verify checks an archive without changing anything; restore puts it back.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>Archive</th><th class="num">Size</th><th>Taken</th><th></th></tr></thead>
+        <tbody id="archiveRows"></tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h2>Moving to another machine</h2>
+      <p class="hint">
+        On the old server press <b>Back up now</b>, then <b>Download</b> the newest archive.
+        On the new server install the stack, open this console, press <b>Upload an archive</b>,
+        then <b>Restore</b> it. Accounts, plasmids, parts and sequencing records all travel with it.
+      </p>
+    </div>`;
+
+  $('#logout').addEventListener('click', async () => { await api('POST', 'api/logout'); renderLogin(); });
+  $('#useDest').addEventListener('click', prepareDestination);
+  $('#runNow').addEventListener('click', runBackup);
+  $('#saveSchedule').addEventListener('click', saveSchedule);
+  $('#uploadFile').addEventListener('change', uploadArchive);
+  renderArchives();
+}
+
+function renderArchives() {
+  const rows = $('#archiveRows');
+  if (!rows) return;
+  if (!STATE.archives.length) {
+    rows.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.2rem">
+      No archives yet. Press “Back up now”.</td></tr>`;
+    return;
+  }
+  rows.innerHTML = STATE.archives.map((a) => `
+    <tr>
+      <td class="mono">${esc(a.name)}</td>
+      <td class="num">${bytes(a.bytes)}</td>
+      <td>${esc(a.created_at)}</td>
+      <td style="white-space:nowrap;text-align:right">
+        <a class="btn btn-sm btn-secondary" href="api/archives/${encodeURIComponent(a.name)}/download">Download</a>
+        <button class="btn btn-sm btn-secondary" data-verify="${esc(a.name)}">Verify</button>
+        <button class="btn btn-sm" data-restore="${esc(a.name)}">Restore</button>
+        <button class="btn btn-sm btn-secondary" data-delete="${esc(a.name)}" title="Delete this archive">✕</button>
+      </td>
+    </tr>`).join('');
+  rows.querySelectorAll('[data-verify]').forEach((b) =>
+    b.addEventListener('click', () => verifyArchive(b.dataset.verify, b)));
+  rows.querySelectorAll('[data-restore]').forEach((b) =>
+    b.addEventListener('click', () => confirmRestore(b.dataset.restore)));
+  rows.querySelectorAll('[data-delete]').forEach((b) =>
+    b.addEventListener('click', () => deleteArchive(b.dataset.delete)));
+}
+
+/* --- actions -------------------------------------------------------------- */
+async function prepareDestination() {
+  const btn = $('#useDest'); btn.disabled = true;
+  try {
+    await api('POST', 'api/destination/prepare', { destination: $('#dest').value });
+    await refresh();
+    notice('ok', 'Destination is ready. Backups will be written there.');
+  } catch (err) { notice('bad', esc(err.message)); }
+  btn.disabled = false;
+}
+
+async function saveSchedule() {
+  const btn = $('#saveSchedule'); btn.disabled = true;
+  try {
+    await api('POST', 'api/settings', {
+      hour: +$('#hour').value, minute: +$('#minute').value,
+      keep_daily: +$('#kd').value, keep_weekly: +$('#kw').value, keep_monthly: +$('#km').value,
+      enabled: $('#enabled').checked,
+    });
+    await refresh();
+    notice('ok', 'Schedule saved.');
+  } catch (err) { notice('bad', esc(err.message)); }
+  btn.disabled = false;
+}
+
+async function runBackup() {
+  const btn = $('#runNow'); btn.disabled = true;
+  $('#runOut').innerHTML = '<span class="spin"></span> Backing up…';
+  try {
+    const res = await api('POST', 'api/backup/run');
+    STATE.archives = res.archives;
+    $('#runOut').innerHTML = `<div class="alert alert-ok">Backup finished.</div>
+      <pre class="out">${esc(res.output.trim())}</pre>`;
+    await refresh(true);
+  } catch (err) {
+    $('#runOut').innerHTML = `<div class="alert alert-bad">${esc(err.message)}</div>` +
+      (err.data?.output ? `<pre class="out">${esc(err.data.output)}</pre>` : '');
+  }
+  btn.disabled = false;
+}
+
+async function uploadArchive(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append('file', file);
+  $('#runOut').innerHTML = '<span class="spin"></span> Uploading…';
+  try {
+    const res = await api('POST', 'api/archives/upload', form, true);
+    STATE.archives = res.archives;
+    renderArchives();
+    $('#runOut').innerHTML = `<div class="alert alert-ok">Uploaded ${esc(res.name)}. Press Restore on it when ready.</div>`;
+  } catch (err) {
+    $('#runOut').innerHTML = `<div class="alert alert-bad">${esc(err.message)}</div>`;
+  }
+  e.target.value = '';
+}
+
+async function verifyArchive(name, btn) {
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'Checking…';
+  try {
+    const res = await api('POST', `api/archives/${encodeURIComponent(name)}/verify`);
+    const lines = res.databases.map((d) => `${d.name}: ${d.integrity}, ${d.tables} tables, ${bytes(d.bytes)}`);
+    notice('ok', `<b>${esc(name)}</b> is good.<br>${lines.map(esc).join('<br>')}`);
+  } catch (err) {
+    notice('bad', `<b>${esc(name)}</b>: ${esc(err.message)}`);
+  }
+  btn.textContent = original; btn.disabled = false;
+}
+
+function confirmRestore(name) {
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.innerHTML = `
+    <div class="modal">
+      <div class="modal-head">Restore from ${esc(name)}?</div>
+      <div class="modal-body">
+        <div class="alert alert-warn">
+          This replaces the MoClo and Plasmid Editor databases with the contents of this
+          archive. Anything added since it was taken will be gone.
+        </div>
+        <p class="hint">
+          Each database is checked before anything is touched, and the one being
+          replaced is kept beside it as <code>.before-restore</code>. The tools stay
+          running; ask people to reload afterwards.
+        </p>
+        <div class="field">
+          <label for="confirmName">Type the archive name to confirm</label>
+          <input id="confirmName" class="mono" placeholder="${esc(name)}" autocomplete="off">
+        </div>
+        <div id="restoreOut"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" id="cancelRestore">Cancel</button>
+        <button class="btn btn-danger" id="doRestore" disabled>Restore</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  const input = $('#confirmName', back);
+  const go = $('#doRestore', back);
+  input.addEventListener('input', () => { go.disabled = input.value.trim() !== name; });
+  $('#cancelRestore', back).addEventListener('click', () => back.remove());
+  back.addEventListener('mousedown', (e) => { if (e.target === back) back.remove(); });
+  input.focus();
+
+  go.addEventListener('click', async () => {
+    go.disabled = true;
+    $('#restoreOut', back).innerHTML = '<span class="spin"></span> Restoring…';
+    try {
+      const res = await api('POST', `api/archives/${encodeURIComponent(name)}/restore`, { confirm: name });
+      const lines = res.results.map((r) => `${r.name}: ${r.status} — ${r.detail}`);
+      back.remove();
+      notice('ok', `Restored from <b>${esc(name)}</b>.<br>${lines.map(esc).join('<br>')}<br>
+        <i>${esc(res.note)}</i>`);
+      await refresh();
+    } catch (err) {
+      $('#restoreOut', back).innerHTML = `<div class="alert alert-bad">${esc(err.message)}</div>`;
+      go.disabled = false;
+    }
+  });
+}
+
+async function deleteArchive(name) {
+  if (!window.confirm(`Delete ${name}? This cannot be undone.`)) return;
+  try {
+    const res = await api('DELETE', `api/archives/${encodeURIComponent(name)}`);
+    STATE.archives = res.archives;
+    renderArchives();
+    notice('ok', `Deleted ${esc(name)}.`);
+  } catch (err) { notice('bad', esc(err.message)); }
+}
+
+/* --- boot ----------------------------------------------------------------- */
+async function refresh(keepNotice) {
+  const [status, archives] = await Promise.all([api('GET', 'api/status'), api('GET', 'api/archives')]);
+  const session = await api('GET', 'api/session');
+  STATE.status = { ...status, username: session.username };
+  STATE.archives = archives.archives;
+  const held = keepNotice ? $('#notice')?.innerHTML : '';
+  const out = keepNotice ? $('#runOut')?.innerHTML : '';
+  renderConsole();
+  if (held) $('#notice').innerHTML = held;
+  if (out) $('#runOut').innerHTML = out;
+}
+
+async function start() {
+  try {
+    const session = await api('GET', 'api/session');
+    if (!session.authenticated) { renderLogin(); return; }
+    await refresh();
+  } catch (err) { renderLogin(err.message); }
+}
+
+start();
+</script>
+</body>
+</html>

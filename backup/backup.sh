@@ -16,11 +16,21 @@
 
 set -u
 
-DEST="${BACKUP_DEST:-/backup}"
+# Settings chosen in the backup console take precedence over the environment,
+# so changing the destination or retention there needs no redeploy. Values are
+# read with jq rather than sourced, so nothing from the file is ever executed.
+SETTINGS="${CONFIG_STORE:-/config-store}/settings.json"
+setting() {
+    [ -f "$SETTINGS" ] || return 1
+    value="$(jq -r --arg k "$1" '.[$k] // empty' "$SETTINGS" 2>/dev/null)"
+    [ -n "$value" ] && [ "$value" != "null" ] && echo "$value"
+}
+
+DEST="$(setting destination || echo "${BACKUP_DEST:-/backup}")"
 STAGING="${BACKUP_STAGING:-/tmp/backup-staging}"
-KEEP_DAILY="${KEEP_DAILY:-14}"
-KEEP_WEEKLY="${KEEP_WEEKLY:-8}"
-KEEP_MONTHLY="${KEEP_MONTHLY:-12}"
+KEEP_DAILY="$(setting keep_daily || echo "${KEEP_DAILY:-14}")"
+KEEP_WEEKLY="$(setting keep_weekly || echo "${KEEP_WEEKLY:-8}")"
+KEEP_MONTHLY="$(setting keep_monthly || echo "${KEEP_MONTHLY:-12}")"
 SENTINEL="$DEST/.backup-target"
 STAMP="$(date +%Y-%m-%d_%H%M%S)"
 NAME="lab-suite-${STAMP}"

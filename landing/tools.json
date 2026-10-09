@@ -36,6 +36,17 @@
       "status": "live"
     }
   ],
+  "admin": [
+    {
+      "id": "backups",
+      "name": "Backups",
+      "icon": "💾",
+      "colour": "#6b7280",
+      "href": "/backup/",
+      "summary": "Choose where backups are kept, run one now, and restore — or move everything to another machine.",
+      "health": "/backup/health"
+    }
+  ],
   "planned": [
     {
       "name": "Primer database",
