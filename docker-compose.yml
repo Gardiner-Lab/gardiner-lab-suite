@@ -61,7 +61,7 @@ services:
       - MOCLO_DATABASE_PATH=/moclo/moclo.db
       # Mounted under /editor by the proxy; the app prefixes its own links.
       - URL_PREFIX=/editor
-      - MOCLO_URL=/parts
+      - MOCLO_BASE_URL=/
       - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
       - DEFAULT_LAB_SOURCE=${DEFAULT_LAB_SOURCE:-}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
