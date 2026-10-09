@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gardiner Lab Tools</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#129516;</text></svg>">
+<style>
+  /* Same tokens as the tools, so the suite reads as one system. */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #2563eb; --text: #1f2937; --muted: #6b7280;
+    --border: #e5e7eb; --bg: #f9fafb; --card: #ffffff;
+    --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6; color: var(--text); background: var(--bg);
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  .wrap { width: 100%; max-width: 68rem; margin: 0 auto; padding: 0 1rem; }
+  header { padding: 3.5rem 0 2rem; text-align: center; }
+  h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 700; letter-spacing: -.02em; }
+  h1 .mark { color: var(--primary); }
+  .tagline { color: var(--muted); font-size: 1.05rem; margin-top: .4rem; }
+
+  main { flex: 1; padding-bottom: 3rem; }
+  .grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
+
+  .tool {
+    display: flex; flex-direction: column; background: var(--card);
+    border: 1px solid var(--border); border-top: 3px solid var(--accent, var(--primary));
+    border-radius: .6rem; box-shadow: var(--shadow); padding: 1.4rem;
+    text-decoration: none; color: inherit;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .tool:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .tool:focus-visible { outline: 3px solid #bfdbfe; outline-offset: 2px; }
+  .tool-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }
+  .tool-icon { font-size: 1.5rem; line-height: 1; }
+  .tool-name { font-size: 1.15rem; font-weight: 650; }
+  .tool-summary { color: var(--muted); font-size: .925rem; }
+  .tool ul { list-style: none; margin: .85rem 0 0; display: grid; gap: .3rem; }
+  .tool li { font-size: .85rem; color: var(--muted); padding-left: 1.1rem; position: relative; }
+  .tool li::before { content: '\2022'; position: absolute; left: .25rem; color: var(--accent, var(--primary)); }
+  .tool-foot { margin-top: auto; padding-top: 1rem; display: flex; align-items: center; justify-content: space-between; }
+  .open { font-weight: 600; color: var(--accent, var(--primary)); font-size: .9rem; }
+
+  .dot { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; color: var(--muted); }
+  .dot::before { content: ''; width: .5rem; height: .5rem; border-radius: 50%; background: #d1d5db; }
+  .dot.up::before { background: #10b981; }
+  .dot.down::before { background: #ef4444; }
+  .dot.checking::before { background: #f59e0b; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  @media (prefers-reduced-motion: reduce) { .dot.checking::before { animation: none; } .tool { transition: none; } }
+
+  .planned { margin-top: 2.5rem; }
+  .planned h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: .75rem; }
+  .planned-card { background: transparent; border: 1px dashed var(--border); border-radius: .6rem; padding: 1rem 1.2rem; }
+  .planned-name { font-weight: 600; font-size: .95rem; }
+  .planned-summary { color: var(--muted); font-size: .875rem; }
+
+  footer { border-top: 1px solid var(--border); background: var(--card); padding: 1.1rem 0; color: var(--muted); font-size: .825rem; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; border-radius: .5rem; padding: 1rem; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1><span class="mark">&#129516;</span> <span id="suiteName">Gardiner Lab Tools</span></h1>
+    <p class="tagline" id="tagline"></p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="grid" id="tools"></div>
+  <section class="planned" id="plannedSection" hidden>
+    <h2>In the pipeline</h2>
+    <div class="grid" id="planned"></div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span id="footerText"></span>
+    <span>Add a tool by editing <code>landing/tools.json</code></span>
+  </div>
+</footer>
+
+<script>
+/*
+ * The landing page is static: it reads the tool registry at runtime, so adding
+ * a tool means editing tools.json and adding a compose service - no rebuild of
+ * this page, and no extra server process to serve it.
+ */
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function card(tool) {
+  const points = (tool.points || []).map((p) => `<li>${esc(p)}</li>`).join('');
+  return `
+    <a class="tool" href="${esc(tool.href)}" style="--accent:${esc(tool.colour || '#2563eb')}">
+      <div class="tool-head">
+        <span class="tool-icon" aria-hidden="true">${esc(tool.icon || '')}</span>
+        <span class="tool-name">${esc(tool.name)}</span>
+      </div>
+      <p class="tool-summary">${esc(tool.summary || '')}</p>
+      ${points ? `<ul>${points}</ul>` : ''}
+      <div class="tool-foot">
+        <span class="open">Open &rarr;</span>
+        <span class="dot checking" data-health="${esc(tool.health || '')}" data-id="${esc(tool.id)}">checking</span>
+      </div>
+    </a>`;
+}
+
+/** A tool is "running" if its health endpoint answers; purely informational. */
+async function checkHealth(el) {
+  const url = el.dataset.health;
+  if (!url) { el.remove(); return; }
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    el.className = res.ok ? 'dot up' : 'dot down';
+    el.textContent = res.ok ? 'running' : `unavailable (${res.status})`;
+  } catch {
+    el.className = 'dot down';
+    el.textContent = 'unavailable';
+  }
+}
+
+(async () => {
+  const target = document.getElementById('tools');
+  try {
+    const registry = await (await fetch('tools.json', { cache: 'no-store' })).json();
+    const suite = registry.suite || {};
+    if (suite.name) { document.getElementById('suiteName').textContent = suite.name; document.title = suite.name; }
+    document.getElementById('tagline').textContent = suite.tagline || '';
+    document.getElementById('footerText').textContent = suite.footer || '';
+
+    target.innerHTML = (registry.tools || []).map(card).join('');
+    document.querySelectorAll('.dot[data-health]').forEach(checkHealth);
+
+    const planned = registry.planned || [];
+    if (planned.length) {
+      document.getElementById('plannedSection').hidden = false;
+      document.getElementById('planned').innerHTML = planned.map((p) => `
+        <div class="planned-card">
+          <div class="planned-name">${esc(p.name)}</div>
+          <div class="planned-summary">${esc(p.summary || '')}</div>
+        </div>`).join('');
+    }
+  } catch (err) {
+    target.innerHTML = `<div class="error">Could not read the tool registry (tools.json): ${esc(err.message)}</div>`;
+  }
+})();
+</script>
+</body>
+</html>

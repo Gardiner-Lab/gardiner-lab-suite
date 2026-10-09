@@ -1,0 +1,45 @@
+{
+  "suite": {
+    "name": "Gardiner Lab Tools",
+    "tagline": "Molecular plant biology software for the lab",
+    "footer": "Gardiner Lab, Universiteit Utrecht"
+  },
+  "tools": [
+    {
+      "id": "moclo",
+      "name": "MoClo Library Tool",
+      "icon": "🧬",
+      "colour": "#2563eb",
+      "href": "/parts",
+      "summary": "Browse and manage the lab's Golden Gate parts library, check overhang compatibility, and plan modular assemblies.",
+      "points": [
+        "Parts, cassettes, backbones and assembled plasmids",
+        "Compatibility checking and multi-slot assembly",
+        "CRISPR guide designer"
+      ],
+      "health": "/health",
+      "status": "live"
+    },
+    {
+      "id": "editor",
+      "name": "Plasmid Editor",
+      "icon": "✂️",
+      "colour": "#10b981",
+      "href": "/editor/",
+      "summary": "Edit and annotate any plasmid, simulate cloning, and align sequencing reads. For work that is not Golden Gate based.",
+      "points": [
+        "Type directly into the sequence; restriction maps and virtual gels",
+        "Golden Gate, Gibson, ligation and recombination simulation",
+        "Sanger read alignment with chromatograms"
+      ],
+      "health": "/editor/health",
+      "status": "live"
+    }
+  ],
+  "planned": [
+    {
+      "name": "Primer database",
+      "summary": "A shared, searchable record of the lab's oligos and what they were used for."
+    }
+  ]
+}

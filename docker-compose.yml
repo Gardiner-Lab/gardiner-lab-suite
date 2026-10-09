@@ -1,0 +1,79 @@
+# Gardiner Lab tool suite: one stack, one port, independent images.
+#
+#   SECRET_KEY=$(openssl rand -hex 32) \
+#   MOCLO_SECRET_KEY=$(openssl rand -hex 32) \
+#     docker compose up -d
+#
+# Each tool keeps its own published image and updates on its own schedule;
+# nothing is vendored here. They share the moclo-data volume so the Plasmid
+# Editor can read the MoClo databases and write changes back to them.
+#
+# To add a tool: add a service below, a location block in nginx/default.conf,
+# and an entry in landing/tools.json.
+
+services:
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: lab-proxy
+    ports:
+      - "${SUITE_PORT:-8080}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./landing:/usr/share/nginx/html:ro
+    depends_on:
+      - moclo
+      - editor
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/suite-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  moclo:
+    image: ghcr.io/gardiner-lab/moclo-library-tool:latest
+    container_name: moclo-library-tool
+    volumes:
+      - moclo-data:/data
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${MOCLO_SECRET_KEY:?set MOCLO_SECRET_KEY, e.g. openssl rand -hex 32}
+      - DATABASE_PATH=/data/moclo.db
+      - PARTS_DATABASE_PATH=/data/parts.db
+      - BACKUP_DIR=/data/backups
+    restart: unless-stopped
+    # Not published on the host: reached through the proxy at "/".
+    expose:
+      - "5000"
+
+  editor:
+    image: ghcr.io/gardiner-lab/plasmid-editor:latest
+    container_name: plasmid-editor
+    volumes:
+      - editor-data:/data
+      - moclo-data:/moclo
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:?set SECRET_KEY, e.g. openssl rand -hex 32}
+      - EDITOR_DATABASE_PATH=/data/plasmid_editor.db
+      # The MoClo databases, shared so edits stay consistent between the tools.
+      - PARTS_DATABASE_PATH=/moclo/parts.db
+      - MOCLO_DATABASE_PATH=/moclo/moclo.db
+      # Mounted under /editor by the proxy; the app prefixes its own links.
+      - URL_PREFIX=/editor
+      - MOCLO_URL=/parts
+      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
+      - DEFAULT_LAB_SOURCE=${DEFAULT_LAB_SOURCE:-}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Behind the proxy the session cookie is plain HTTP unless you terminate
+      # TLS in front of this stack; set true once you do.
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+    restart: unless-stopped
+    expose:
+      - "5001"
+
+volumes:
+  # Created by whichever tool starts first and shared by both.
+  moclo-data:
+  editor-data:
