@@ -2,8 +2,9 @@
 *.db
 data/
 
-# Local backup destination used for testing
+# Local backup destination and the default repo-local BACKUP_ROOT mount point
 backups/
+mnt/
 
 __pycache__/
 

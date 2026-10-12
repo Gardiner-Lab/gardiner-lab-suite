@@ -279,6 +279,13 @@ force_env SUITE_PORT "$PORT"
 # drive is chosen in the backup console; see docs/BACKUP.md.
 force_env BACKUP_DEST ./backups
 mkdir -p backups
+# The backup containers mount BACKUP_ROOT at /mnt, so the lab's drive can be
+# reached beneath it. Default it to a repo-local ./mnt that always exists and is
+# shareable with Docker Desktop (macOS/Windows); on a Linux server, point it at
+# the host directory the NAS is mounted under. Only set when still empty, so a
+# NAS path already chosen in .env is kept.
+set_env BACKUP_ROOT ./mnt
+mkdir -p mnt
 chmod 600 .env 2>/dev/null || true
 ok "secrets generated; port $PORT"
 

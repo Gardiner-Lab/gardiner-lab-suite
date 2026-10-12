@@ -64,6 +64,15 @@ Backups can go to either of two places, chosen at the top of the console:
   mounted there on the host, backups stay on this machine, so use this only for
   a drive the server mounts itself, NFS for instance.
 
+> **`BACKUP_ROOT` and Docker Desktop.** `BACKUP_ROOT` defaults to a repo-local
+> `./mnt`, so the stack starts everywhere, including Docker Desktop on macOS and
+> Windows. On a Linux server, set `BACKUP_ROOT` to the host directory your NAS
+> is mounted under (often `/mnt`). On Docker Desktop, an absolute host path such
+> as `/mnt` is **not** shared by default — Docker refuses the mount with
+> "path /mnt is not shared from the host". Either keep the `./mnt` default, or
+> add the absolute path under Docker's *Settings → Resources → File Sharing*
+> before setting it.
+
 ## Moving to another machine
 
 1. On the old server: **Back up now**, then **Download** the newest archive.

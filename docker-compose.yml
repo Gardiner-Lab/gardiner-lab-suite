@@ -98,8 +98,12 @@ services:
       # Read-only: the backup never needs to change the live data.
       - moclo-data:/moclo:ro
       - editor-data:/data:ro
-      # The network drive, mounted on the host. See docs/BACKUP.md.
-      - ${BACKUP_ROOT:-/mnt}:/mnt
+      # Where the lab's backup drive is reachable, mounted at /mnt in the
+      # container. On a Linux server, point BACKUP_ROOT at the host directory
+      # the NAS is mounted under (e.g. /mnt). The default is a repo-local ./mnt
+      # so the stack also comes up on Docker Desktop (macOS/Windows), where an
+      # absolute /mnt is not a shared path. See docs/BACKUP.md.
+      - ${BACKUP_ROOT:-./mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       # Settings chosen in the backup console.
       - backup-config:/config-store
@@ -128,7 +132,7 @@ services:
     volumes:
       - moclo-data:/moclo
       - editor-data:/data
-      - ${BACKUP_ROOT:-/mnt}:/mnt
+      - ${BACKUP_ROOT:-./mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
       - ./:/config:ro
@@ -152,7 +156,7 @@ services:
     volumes:
       - moclo-data:/moclo
       - editor-data:/data
-      - ${BACKUP_ROOT:-/mnt}:/mnt
+      - ${BACKUP_ROOT:-./mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
     environment:
