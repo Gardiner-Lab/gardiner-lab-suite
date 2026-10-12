@@ -82,6 +82,10 @@
           border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  [hidden] { display: none !important; }
+  .kinds { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: .85rem; }
+  .kinds label { display: flex; gap: .4rem; align-items: center; font-weight: 500; cursor: pointer; }
+  .kinds input { width: auto; }
 </style>
 </head>
 <body>
@@ -153,6 +157,7 @@ function renderConsole() {
   const set = s.settings;
   const ready = s.destination_exists && s.destination_marked && s.destination_writable;
   const last = s.last_run || {};
+  const isShare = s.destination_type === 'smb';
 
   $('#who').innerHTML = `<span>👤 ${esc(s.username || '')}</span>
     <button class="btn btn-sm btn-secondary" id="logout">Sign out</button>`;
@@ -162,31 +167,69 @@ function renderConsole() {
 
     <div class="card">
       <h2>Where backups are kept</h2>
-      <p class="hint">
-        A path on the server, normally a mounted network drive. It must be under
-        ${s.allowed_roots.map((r) => `<code>${esc(r)}</code>`).join(' or ')} —
-        mount the share there on the server first.
-      </p>
-      <div class="field">
-        <label for="dest">Backup destination</label>
-        <input id="dest" class="mono" value="${esc(set.destination)}" placeholder="/mnt/labbackup/lab-suite">
+      <div class="kinds">
+        <label><input type="radio" name="kind" value="smb" ${isShare ? 'checked' : ''}>
+          Network drive <span class="hint" style="margin:0">(Windows file server or NAS)</span></label>
+        <label><input type="radio" name="kind" value="folder" ${isShare ? '' : 'checked'}>
+          Folder on the server</label>
       </div>
-      <div class="btns">
-        <button class="btn" id="useDest">Use this folder</button>
-        <span class="hint" style="margin:0">Creates it if needed and marks it as the backup drive.</span>
+
+      <div id="kindSmb" ${isShare ? '' : 'hidden'}>
+        <p class="hint">
+          Backups are copied straight to the share over the network, so nothing has to be
+          mounted on the server and nothing is kept inside Docker. The folder is created if
+          it does not exist yet.
+        </p>
+        <div class="field">
+          <label for="smbPath">Share and folder</label>
+          <input id="smbPath" class="mono" value="${esc(set.smb_path || '')}"
+                 placeholder="\\\\fileserver.example.org\\lab\\backups\\lab-suite">
+        </div>
+        <div class="row">
+          <div class="field"><label for="smbUser">Username</label>
+            <input id="smbUser" autocomplete="off" value="${esc(set.smb_username || '')}" placeholder="DOMAIN\\name"></div>
+          <div class="field"><label for="smbPass">Password</label>
+            <input id="smbPass" type="password" autocomplete="new-password"
+                   placeholder="${s.smb_password_set && isShare ? 'saved; type to change' : ''}"></div>
+        </div>
+        <div class="btns">
+          <button class="btn btn-secondary" id="testShare">Test connection</button>
+          <button class="btn" id="useShare">Use this network drive</button>
+          <span class="hint" style="margin:0">Use an account that may write to the share; a service account is best.</span>
+        </div>
       </div>
+
+      <div id="kindFolder" ${isShare ? 'hidden' : ''}>
+        <p class="hint">
+          A path inside the backup container. Only useful if the server has mounted a drive
+          there itself, under
+          ${s.allowed_roots.map((r) => `<code>${esc(r)}</code>`).join(' or ')};
+          otherwise the backups stay on this machine.
+        </p>
+        <div class="field">
+          <label for="dest">Backup destination</label>
+          <input id="dest" class="mono" value="${esc(set.destination)}" placeholder="/mnt/labbackup/lab-suite">
+        </div>
+        <div class="btns">
+          <button class="btn btn-secondary" id="browseDest">Browse…</button>
+          <button class="btn" id="useDest">Use this folder</button>
+          <span class="hint" style="margin:0">Creates it if needed and marks it as the backup drive.</span>
+        </div>
+      </div>
+
       ${ready ? '' : `<div class="alert alert-warn" style="margin-top:.85rem">
+        ${s.destination_error ? `${esc(s.destination_error)}<br>` : ''}
         ${s.destination_exists
-          ? (s.destination_marked ? 'The destination is not writable by the server.'
-                                  : 'This folder is not marked as a backup destination yet. Press “Use this folder”.')
-          : 'This folder does not exist on the server yet. Press “Use this folder” to create it.'}
+          ? (s.destination_marked ? 'The destination is not writable.'
+                                  : `It is not marked as a backup destination yet. Press “${isShare ? 'Use this network drive' : 'Use this folder'}”.`)
+          : `Press “${isShare ? 'Use this network drive' : 'Use this folder'}” to create and mark it.`}
       </div>`}
     </div>
 
     <div class="card">
       <h2>Status</h2>
       <div class="status-grid">
-        <div class="stat"><div class="k">Destination</div><div class="v mono">${esc(set.destination)}</div></div>
+        <div class="stat"><div class="k">Destination</div><div class="v mono">${esc(s.destination_label)}</div></div>
         <div class="stat"><div class="k">Ready</div><div class="v">
           <span class="dot ${ready ? 'ok' : 'bad'}"></span>${ready ? 'yes' : 'not yet'}</div></div>
         <div class="stat"><div class="k">Last backup</div><div class="v">
@@ -246,7 +289,15 @@ function renderConsole() {
     </div>`;
 
   $('#logout').addEventListener('click', async () => { await api('POST', 'api/logout'); renderLogin(); });
+  $('#browseDest').addEventListener('click', () => openBrowser($('#dest').value));
   $('#useDest').addEventListener('click', prepareDestination);
+  $('#testShare').addEventListener('click', testShare);
+  $('#useShare').addEventListener('click', useShare);
+  document.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener('change', () => {
+    const share = document.querySelector('input[name="kind"]:checked').value === 'smb';
+    $('#kindSmb').hidden = !share;
+    $('#kindFolder').hidden = share;
+  }));
   $('#runNow').addEventListener('click', runBackup);
   $('#saveSchedule').addEventListener('click', saveSchedule);
   $('#uploadFile').addEventListener('change', uploadArchive);
@@ -281,6 +332,100 @@ function renderArchives() {
     b.addEventListener('click', () => deleteArchive(b.dataset.delete)));
 }
 
+/* --- folder browser -------------------------------------------------------- */
+/**
+ * Pick a folder on the server. Only folders under the allowed roots are
+ * listed, so this is a way to find the mounted drive, not to look around.
+ */
+function openBrowser(startAt) {
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.innerHTML = `
+    <div class="modal">
+      <div class="modal-head">Choose a folder on the server</div>
+      <div class="modal-body">
+        <div id="crumb" class="mono" style="margin-bottom:.6rem;color:var(--muted)"></div>
+        <div id="browseError"></div>
+        <div class="scroll" style="border:1px solid var(--border);border-radius:.375rem">
+          <table><tbody id="browseRows"></tbody></table>
+        </div>
+        <div class="row" style="margin-top:.75rem;align-items:flex-end">
+          <div><label for="newFolder">New folder here</label>
+            <input id="newFolder" placeholder="lab-suite"></div>
+          <div style="flex:0 0 auto"><button class="btn btn-secondary" id="mkdir">Create</button></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" id="browseCancel">Cancel</button>
+        <button class="btn" id="browsePick">Use this folder</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  let current = '';
+
+  const close = () => back.remove();
+  $('#browseCancel', back).addEventListener('click', close);
+  back.addEventListener('mousedown', (e) => { if (e.target === back) close(); });
+
+  async function show(path) {
+    try {
+      const data = await api('GET', `api/browse?path=${encodeURIComponent(path || '')}`);
+      current = data.path || '';
+      $('#browseError', back).innerHTML = '';
+      $('#crumb', back).textContent = data.is_root_list
+        ? 'Places where backups may be kept'
+        : current + (data.writable ? '' : '  (not writable)');
+      $('#browsePick', back).disabled = data.is_root_list;
+      $('#newFolder', back).disabled = data.is_root_list;
+      $('#mkdir', back).disabled = data.is_root_list;
+
+      const rows = [];
+      if (data.parent !== null && data.parent !== undefined) {
+        rows.push(`<tr><td><a href="#" data-go="${esc(data.parent)}">⬆ up to ${esc(data.parent)}</a></td><td></td></tr>`);
+      } else if (!data.is_root_list) {
+        rows.push(`<tr><td><a href="#" data-go="">⬆ all places</a></td><td></td></tr>`);
+      }
+      if (!data.entries.length) {
+        rows.push(`<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:.9rem">
+          No folders here${data.is_root_list ? '' : ' — you can still use this one'}.</td></tr>`);
+      }
+      for (const e of data.entries) {
+        const tag = e.archives ? `<span class="hint">${e.archives} archive(s)</span>`
+                  : (e.exists === false ? '<span class="hint">not mounted</span>' : '');
+        rows.push(`<tr>
+          <td><a href="#" data-go="${esc(e.path)}">📁 ${esc(e.name)}</a></td>
+          <td style="text-align:right">${tag}</td></tr>`);
+      }
+      $('#browseRows', back).innerHTML = rows.join('');
+      back.querySelectorAll('[data-go]').forEach((a) =>
+        a.addEventListener('click', (ev) => { ev.preventDefault(); show(a.dataset.go); }));
+    } catch (err) {
+      $('#browseError', back).innerHTML = `<div class="alert alert-bad">${esc(err.message)}</div>`;
+    }
+  }
+
+  $('#mkdir', back).addEventListener('click', async () => {
+    const name = $('#newFolder', back).value.trim();
+    if (!name) return;
+    try {
+      const res = await api('POST', 'api/browse/mkdir', { path: current, name });
+      $('#newFolder', back).value = '';
+      show(res.path);
+    } catch (err) {
+      $('#browseError', back).innerHTML = `<div class="alert alert-bad">${esc(err.message)}</div>`;
+    }
+  });
+
+  $('#browsePick', back).addEventListener('click', () => {
+    $('#dest').value = current;
+    close();
+    notice('info', `Destination set to <code>${esc(current)}</code>. Press “Use this folder” to confirm it.`);
+  });
+
+  // Start where the current destination is, falling back to the list of roots.
+  show(startAt && startAt.trim() ? startAt.trim() : '').catch(() => show(''));
+}
+
 /* --- actions -------------------------------------------------------------- */
 async function prepareDestination() {
   const btn = $('#useDest'); btn.disabled = true;
@@ -288,6 +433,37 @@ async function prepareDestination() {
     await api('POST', 'api/destination/prepare', { destination: $('#dest').value });
     await refresh();
     notice('ok', 'Destination is ready. Backups will be written there.');
+  } catch (err) { notice('bad', esc(err.message)); }
+  btn.disabled = false;
+}
+
+function shareForm() {
+  return { path: $('#smbPath').value, username: $('#smbUser').value, password: $('#smbPass').value };
+}
+
+async function testShare() {
+  const btn = $('#testShare'); btn.disabled = true;
+  try {
+    const r = await api('POST', 'api/destination/share/test', shareForm());
+    if (!r.exists) {
+      notice('info', `Connected. <code>${esc(r.location)}</code> does not exist yet; ` +
+                     '“Use this network drive” will create it.');
+    } else if (!r.writable) {
+      notice('bad', `Connected, but this account cannot write to <code>${esc(r.location)}</code>.`);
+    } else {
+      notice('ok', `Connected and writable. ${r.archives} archive${r.archives === 1 ? '' : 's'} there` +
+                   `${r.marked ? '' : '; not marked as the backup destination yet'}.`);
+    }
+  } catch (err) { notice('bad', esc(err.message)); }
+  btn.disabled = false;
+}
+
+async function useShare() {
+  const btn = $('#useShare'); btn.disabled = true;
+  try {
+    const r = await api('POST', 'api/destination/share', shareForm());
+    await refresh();
+    notice('ok', `Backups will be written to <code>${esc(r.destination)}</code>.`);
   } catch (err) { notice('bad', esc(err.message)); }
   btn.disabled = false;
 }

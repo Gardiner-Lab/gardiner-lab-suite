@@ -25,6 +25,10 @@ case "${1:-schedule}" in
     ;;
 
   init)
+    if [ "$(jq -r '.destination_type // empty' "$SETTINGS_FILE" 2>/dev/null)" = "smb" ]; then
+        echo "The destination is a network share: mark it from the backup console." >&2
+        exit 1
+    fi
     # Writing the marker is how an operator says "this really is the network
     # drive". backup.sh refuses to run without it, so a drive that failed to
     # mount cannot be mistaken for the destination.
@@ -40,10 +44,14 @@ EOF
     ;;
 
   healthcheck)
-    [ -f "$DEST/status.json" ] || { echo "no backup has run yet"; exit 1; }
-    grep -q '"status": *"ok"' "$DEST/status.json" || { echo "last backup failed"; exit 1; }
+    # The last outcome is kept in the settings volume, so checking health never
+    # has to reach a network share. Older installs only have it at $DEST.
+    STATUS="${CONFIG_STORE:-/config-store}/last-status.json"
+    [ -f "$STATUS" ] || STATUS="$DEST/status.json"
+    [ -f "$STATUS" ] || { echo "no backup has run yet"; exit 1; }
+    grep -q '"status": *"ok"' "$STATUS" || { echo "last backup failed"; exit 1; }
     # Older than 36 hours means a daily run has been missed.
-    if [ -n "$(find "$DEST/status.json" -mmin +2160 2>/dev/null)" ]; then
+    if [ -n "$(find "$STATUS" -mmin +2160 2>/dev/null)" ]; then
         echo "last backup is more than 36 hours old"
         exit 1
     fi

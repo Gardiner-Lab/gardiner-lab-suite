@@ -1,0 +1,85 @@
+name: Release
+
+# Pushing a version tag (v1.0.0) publishes a release of the suite:
+#
+#   1. checks that the tag matches the backup image version pinned in
+#      docker-compose.yml, and that every other pinned image exists;
+#   2. publishes the backup service as ghcr.io/gardiner-lab/lab-suite-backup,
+#      for Intel and ARM servers;
+#   3. creates a GitHub release with that version's CHANGELOG notes and a
+#      download of the suite, for servers without git.
+
+on:
+  push:
+    tags: ['v*']
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: gardiner-lab/lab-suite-backup
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check versions
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          grep -q "lab-suite-backup:\${SUITE_VERSION:-$version}" docker-compose.yml \
+            || { echo "docker-compose.yml does not pin lab-suite-backup to $version"; exit 1; }
+          grep -q "^## \[$version\]" CHANGELOG.md \
+            || { echo "CHANGELOG.md has no section for $version"; exit 1; }
+          for image in $(SECRET_KEY=x MOCLO_SECRET_KEY=x docker compose --profile restore config --images | sort -u); do
+            case "$image" in *lab-suite-backup*) continue ;; esac
+            docker manifest inspect "$image" > /dev/null || { echo "Pinned image $image is not published"; exit 1; }
+          done
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Backup service tests
+        run: |
+          pip install flask bcrypt pytest
+          pytest -q backup/
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./backup
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # This version's section of the changelog becomes the release notes.
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" {on=1; next}
+            on && /^## \[/ {exit}
+            on {print}' CHANGELOG.md > notes.md
+          git archive --format=tar.gz --prefix="gardiner-lab-suite/" \
+            -o "gardiner-lab-suite-$version.tar.gz" "$GITHUB_REF_NAME"
+          gh release create "$GITHUB_REF_NAME" "gardiner-lab-suite-$version.tar.gz" \
+            --title "Gardiner Lab Tools $version" --notes-file notes.md

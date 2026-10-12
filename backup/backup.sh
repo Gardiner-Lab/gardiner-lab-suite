@@ -28,6 +28,17 @@ setting() {
 
 DEST="$(setting destination || echo "${BACKUP_DEST:-/backup}")"
 STAGING="${BACKUP_STAGING:-/tmp/backup-staging}"
+STORAGE="python3 /usr/local/bin/storage.py"
+
+# A network share is reached over SMB rather than mounted, so the archive is
+# built in a local folder first and then copied there by storage.py.
+SHARE=""
+if [ "$(setting destination_type)" = "smb" ]; then
+    SHARE="$(setting smb_path)"
+    DEST="${BACKUP_OUTBOX:-/tmp/backup-outbox}"
+    rm -rf "$DEST"
+    mkdir -p "$DEST"
+fi
 KEEP_DAILY="$(setting keep_daily || echo "${KEEP_DAILY:-14}")"
 KEEP_WEEKLY="$(setting keep_weekly || echo "${KEEP_WEEKLY:-8}")"
 KEEP_MONTHLY="$(setting keep_monthly || echo "${KEEP_MONTHLY:-12}")"
@@ -44,6 +55,13 @@ log() {
 # Record the outcome where a monitor (or the healthcheck) can read it.
 write_status() {
     status="$1"; detail="$2"; archive="${3:-}"
+    # Also kept in the settings volume, where the healthcheck reads it.
+    $STORAGE status "$status" "$detail" "$archive" >/dev/null 2>&1 || true
+    if [ -n "$SHARE" ]; then
+        # This run's log goes to the share as well, when it can be reached.
+        $STORAGE append-log "$LOG" >/dev/null 2>&1 || true
+        return 0
+    fi
     [ -d "$DEST" ] || return 0
     cat > "$DEST/status.json.part" <<EOF
 {
@@ -70,6 +88,10 @@ fail() {
 # The destination must be the real network drive, not an empty mount point
 # ---------------------------------------------------------------------------
 check_destination() {
+    if [ -n "$SHARE" ]; then
+        problem="$($STORAGE check 2>&1)" || fail "$problem"
+        return 0
+    fi
     [ -d "$DEST" ] || fail "destination $DEST does not exist inside the container"
     if [ ! -f "$SENTINEL" ]; then
         fail "no .backup-target marker in $DEST. If the network drive is mounted, run 'make backup-init' once to mark it. This guard exists so that a drive which failed to mount is never mistaken for the backup target."
@@ -77,6 +99,15 @@ check_destination() {
     touch "$DEST/.write-test" 2>/dev/null || fail "destination $DEST is not writable"
     rm -f "$DEST/.write-test"
 }
+
+if [ "${1:-}" = "--check" ] && [ -n "$SHARE" ]; then
+    echo "Destination : $SHARE (network share)"
+    if problem="$($STORAGE check 2>&1)"; then echo "State       : ready"; else echo "State       : $problem"; fi
+    echo "Free space  : $($STORAGE free 2>/dev/null || echo unknown)"
+    echo "Archives    : $($STORAGE count 2>/dev/null || echo unknown)"
+    echo "Last status : $(cat "${CONFIG_STORE:-/config-store}/last-status.json" 2>/dev/null || echo 'none recorded')"
+    exit 0
+fi
 
 if [ "${1:-}" = "--check" ]; then
     echo "Destination : $DEST"
@@ -142,9 +173,11 @@ copy_extras "editor-volume" "${EDITOR_DIR:-/data}"
 
 if [ -d "${CONFIG_DIR:-/config}" ]; then
     # Compose files, nginx routing and the landing page: enough to rebuild the
-    # stack. Secrets are deliberately left out; see docs/BACKUP.md.
+    # stack. Secrets are deliberately left out; see docs/BACKUP.md. So is the
+    # default local backup folder, or every archive would contain the last.
     tar czf "$STAGING/$NAME/files/config.tar.gz" -C "${CONFIG_DIR:-/config}" \
-        --exclude='.env' --exclude='*.key' --exclude='*.pem' --exclude='.git' . 2>/dev/null \
+        --exclude='.env' --exclude='*.key' --exclude='*.pem' --exclude='.git' \
+        --exclude='./backups' --exclude='__pycache__' . 2>/dev/null \
         && log "  stack configuration: archived (secrets excluded)"
 fi
 
@@ -176,6 +209,25 @@ sha256sum -c "$NAME.tar.gz.sha256" >/dev/null 2>&1 \
     || fail "the archive does not match its checksum after being written"
 
 SIZE="$(du -h "$ARCHIVE" | cut -f1)"
+
+if [ -n "$SHARE" ]; then
+    # Copied, then read back from the share and checked against the checksum.
+    problem="$($STORAGE publish "$ARCHIVE" 2>&1)" || fail "could not copy the archive to $SHARE: $problem"
+    log "wrote $NAME.tar.gz ($SIZE) to $SHARE, checksum verified"
+    pruned="$($STORAGE prune "$KEEP_DAILY" "$KEEP_WEEKLY" "$KEEP_MONTHLY" 2>&1)" \
+        || log "warning: pruning old archives did not complete: $pruned"
+    [ "${pruned:-0}" -gt 0 ] 2>/dev/null && log "pruned $pruned old archive(s)"
+    rm -rf "$STAGING"
+    REMAINING="$($STORAGE count 2>/dev/null || echo '?')"
+    log "backup complete: $REMAINING archive(s) held, $($STORAGE free 2>/dev/null || echo unknown) free"
+    write_status "ok" "$REMAINING archive(s) held" "$NAME.tar.gz"
+    rm -rf "$DEST"
+    [ -n "${NOTIFY_ON_SUCCESS:-}" ] && [ -n "${NOTIFY_URL:-}" ] && \
+        wget -q -O- --post-data="{\"text\":\"Lab suite backup ok: $NAME.tar.gz ($SIZE)\"}" \
+            --header='Content-Type: application/json' "$NOTIFY_URL" >/dev/null 2>&1
+    exit 0
+fi
+
 log "wrote $NAME.tar.gz ($SIZE), checksum verified"
 
 # ---------------------------------------------------------------------------

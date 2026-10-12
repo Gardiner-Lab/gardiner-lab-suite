@@ -4,3 +4,11 @@ data/
 
 # Local backup destination used for testing
 backups/
+
+__pycache__/
+
+# Left by install.sh
+pre-install-backup/
+.install-state*
+.env.before-install-*
+.env.rolled-back-*

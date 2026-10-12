@@ -53,10 +53,16 @@ location /backup/ {
 }
 ```
 
-The destination you type there must be under one of `ALLOWED_BACKUP_ROOTS`
-(`/mnt` and `/backup` by default), and the host's `${BACKUP_ROOT}` is mounted at
-`/mnt` in the container. So mount the network share anywhere under `/mnt` on the
-server and the console can use it.
+Backups can go to either of two places, chosen at the top of the console:
+
+* **Network drive** (recommended): a folder on a Windows file server or NAS,
+  reached directly over SMB. Nothing is mounted on the server and nothing is
+  kept inside Docker. See [Backing up to a network drive](#backing-up-to-a-network-drive).
+* **Folder on the server**: a path inside the backup container. It must be under
+  one of `ALLOWED_BACKUP_ROOTS` (`/mnt` and `/backup` by default), and the
+  host's `${BACKUP_ROOT}` is mounted at `/mnt` in the container. Without a drive
+  mounted there on the host, backups stay on this machine, so use this only for
+  a drive the server mounts itself, NFS for instance.
 
 ## Moving to another machine
 
@@ -70,7 +76,47 @@ Accounts, plasmids, parts, sequencing reads and verifications all travel in the
 archive. Only the secrets in `.env` do not; generate fresh ones on the new
 machine, which costs everyone a new login and nothing else.
 
-## Setting up the network drive
+## Backing up to a network drive
+
+In the backup console, under **Where backups are kept**, choose **Network
+drive** and fill in:
+
+| Field | Example |
+| --- | --- |
+| Share and folder | `\\fileserver.example.org\lab\backups\lab-suite` |
+| Username | `DOMAIN\labbackup` for a domain account, or just `labbackup` |
+| Password | that account's password |
+
+**Test connection** checks the server, the share and the account without
+changing anything. **Use this network drive** creates the folder if needed,
+proves it can write there, marks it as the backup destination, and from then on
+both the nightly backup and **Back up now** go there. `//server/share/folder`
+and `smb://server/share/folder` are accepted too.
+
+How it works, and what to know:
+
+* The share is spoken to over SMB from inside the backup containers (with the
+  `smbprotocol` library), never mounted. Mounting would need the containers to
+  run privileged; this does not.
+* Each archive is built locally, copied to the share under a temporary name,
+  renamed into place, and then **read back from the share** and checked against
+  its checksum. A transfer that was cut short is deleted and the run fails.
+* Old archives on the share are pruned by the same retention rules as below.
+  `backup.log` and `status.json` are kept on the share as well.
+* The password is stored in the `backup-config` volume, in its own file readable
+  only by root, separately from the other settings. It is never sent back to
+  the browser. Use a **service account** that can write to that one folder
+  rather than a person's own account, so a password change does not quietly
+  stop the backups.
+* The healthcheck reads the last result from the `backup-config` volume, so a
+  share that is down shows up as a failed backup, not as a hanging healthcheck.
+* Downloading, verifying and restoring an archive fetch it from the share
+  first, so they take a little longer than from a local folder.
+
+For the commands below, `make backup-check` reports on the share in the same
+way; `make backup-init` is not needed (marking happens in the console).
+
+## Mounting a drive on the server instead
 
 Mount the share on the **host** first, so it survives reboots. For a Windows or
 NAS share over SMB, in `/etc/fstab`:

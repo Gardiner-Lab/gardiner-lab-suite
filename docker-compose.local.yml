@@ -1,14 +1,29 @@
-# Build the Plasmid Editor from a working copy instead of pulling its published
-# image. Useful before a release, and for testing a change against the stack:
+# Build images from source instead of pulling the published ones: the Plasmid
+# Editor from a working copy, and the backup service from ./backup. Used before
+# a release, for testing a change against the stack, and by install.sh while an
+# image has not been published yet.
 #
 #   SECRET_KEY=dev MOCLO_SECRET_KEY=dev \
 #     docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 #
-# EDITOR_SRC points at the checkout (default: a sibling directory).
+# EDITOR_SRC points at the editor checkout (default: a sibling directory).
 
 services:
   editor:
     build:
       context: ${EDITOR_SRC:-../plasmid-editor}
     image: plasmid-editor:local
+    pull_policy: never
+
+  backup:
+    build: ./backup
+    image: lab-suite-backup:local
+    pull_policy: never
+
+  backup-console:
+    image: lab-suite-backup:local
+    pull_policy: never
+
+  restore:
+    image: lab-suite-backup:local
     pull_policy: never

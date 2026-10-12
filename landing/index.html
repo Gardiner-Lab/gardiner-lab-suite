@@ -119,6 +119,23 @@ function card(tool) {
     </a>`;
 }
 
+/**
+ * Is whoever is looking at this page an administrator?
+ *
+ * Accounts are shared across the suite, so the Plasmid Editor's session is
+ * asked. Anyone not signed in simply does not see the administration section.
+ */
+async function viewerIsAdmin() {
+  try {
+    const res = await fetch('/editor/api/auth/session', { credentials: 'same-origin', cache: 'no-store' });
+    if (!res.ok) return false;
+    const session = await res.json();
+    return Boolean(session.authenticated && session.user && session.user.is_admin);
+  } catch {
+    return false;
+  }
+}
+
 /** A tool is "running" if its health endpoint answers; purely informational. */
 async function checkHealth(el) {
   const url = el.dataset.health;
@@ -144,9 +161,11 @@ async function checkHealth(el) {
 
     target.innerHTML = (registry.tools || []).map(card).join('');
 
-    // Administrative tools sit in their own section, below the everyday ones.
+    // Administrative tools are shown only to administrators. This is for
+    // tidiness, not security: each one requires an administrator sign-in of
+    // its own, and hiding a card protects nothing by itself.
     const admin = registry.admin || [];
-    if (admin.length) {
+    if (admin.length && await viewerIsAdmin()) {
       document.getElementById('adminSection').hidden = false;
       document.getElementById('admin').innerHTML = admin.map(card).join('');
     }

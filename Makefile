@@ -1,8 +1,9 @@
-.PHONY: help up down logs pull update restart-proxy local check         backup backup-init backup-check backup-list backup-logs restore restore-check
+.PHONY: help install up down logs pull update restart-proxy local check         backup backup-init backup-check backup-list backup-logs restore restore-check
 
 help:
 	@echo "Gardiner Lab Tools - available commands"
 	@echo "======================================="
+	@echo "install       - Install or update; takes over an existing MoClo"
 	@echo "up            - Start the suite (needs SECRET_KEY and MOCLO_SECRET_KEY)"
 	@echo "down          - Stop the suite"
 	@echo "logs          - Follow the logs"
@@ -19,6 +20,9 @@ help:
 	@echo "  backup-logs   - Follow the backup container's log"
 	@echo "  restore-check - Verify an archive without changing anything (ARCHIVE=...)"
 	@echo "  restore       - Restore from an archive (ARCHIVE=latest), stack stopped"
+
+install:
+	./install.sh
 
 up:
 	docker compose up -d

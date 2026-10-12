@@ -34,14 +34,23 @@ from pathlib import Path
 import bcrypt
 from flask import Flask, jsonify, request, send_file, session
 
+import storage
+from storage import StorageError
+
 APP_VERSION = '1.0.0'
 
 CONFIG_DIR = Path(os.environ.get('CONFIG_STORE', '/config-store'))
 SETTINGS_FILE = CONFIG_DIR / 'settings.json'
 # Backups may only be written below these roots. The host mounts the network
 # drive somewhere under one of them.
-ALLOWED_ROOTS = [Path(p) for p in os.environ.get('ALLOWED_BACKUP_ROOTS', '/mnt:/backup').split(':') if p]
+# Separated the way PATH is on this platform, so a Windows checkout can run the
+# tests even though the service itself only ever runs in a Linux container.
+ALLOWED_ROOTS = [Path(p) for p in
+                 os.environ.get('ALLOWED_BACKUP_ROOTS', f'/mnt{os.pathsep}/backup').split(os.pathsep)
+                 if p]
 EDITOR_DB = Path(os.environ.get('EDITOR_DB', '/data/plasmid_editor.db'))
+# Accounts are shared across the suite; the MoClo user table is the directory.
+MOCLO_DB = Path(os.environ.get('MOCLO_DB', '/moclo/moclo.db'))
 
 # The databases this console can restore, and where they live.
 DATABASES = {
@@ -49,6 +58,9 @@ DATABASES = {
     'parts.db': Path(os.environ.get('PARTS_DB', '/moclo/parts.db')),
     'plasmid_editor.db': Path(os.environ.get('EDITOR_DB', '/data/plasmid_editor.db')),
 }
+
+# The MoClo tool creates 'admin' with this password when no such account exists.
+MOCLO_DEFAULT_PASSWORD = 'admin123'
 
 ARCHIVE_RE = re.compile(r'^lab-suite-\d{4}-\d{2}-\d{2}_\d{6}\.tar\.gz$')
 MAX_UPLOAD = 2 * 1024 * 1024 * 1024  # 2 GiB
@@ -97,6 +109,37 @@ def destination() -> Path:
     return Path(load_settings()['destination'])
 
 
+def store():
+    """The configured destination: a folder, or a network share."""
+    return storage.store_for(load_settings(), DEFAULTS['destination'])
+
+
+class _LocalCopy:
+    """
+    An archive as a local file, for reading: the file itself in a folder
+    destination, or a temporary copy fetched from a network share.
+    """
+
+    def __init__(self, name: str):
+        self.name = name
+        self.tmp = None
+
+    def __enter__(self) -> Path:
+        target = store()
+        in_place = target.local_path(self.name)
+        if in_place is not None:
+            return in_place
+        self.tmp = tempfile.TemporaryDirectory()
+        path = Path(self.tmp.name) / self.name
+        target.fetch(self.name, path)
+        return path
+
+    def __exit__(self, *exc):
+        if self.tmp is not None:
+            self.tmp.cleanup()
+        return False
+
+
 def validate_destination(raw: str) -> Path:
     """A destination must be an absolute path under one of the allowed roots."""
     text = (raw or '').strip()
@@ -114,28 +157,46 @@ def validate_destination(raw: str) -> Path:
     return Path(resolved)
 
 
-def archive_path(name: str) -> Path:
-    """Resolve an archive name, refusing anything that is not a plain archive."""
+def check_archive_name(name: str) -> str:
+    """Refuse anything that is not a plain archive name."""
     if not ARCHIVE_RE.match(name or ''):
         raise ValueError('Not a backup archive name')
-    return destination() / name
+    return name
+
+
+def archive_path(name: str) -> Path:
+    """Resolve an archive name in a folder destination."""
+    return destination() / check_archive_name(name)
 
 
 # ---------------------------------------------------------------------------
 # Authentication: the Plasmid Editor's admin accounts
 # ---------------------------------------------------------------------------
 
-def check_admin(username: str, password: str) -> bool:
-    if not EDITOR_DB.exists():
-        return False
+def _lookup(db: Path, username: str):
+    """A user row from one of the suite's databases, or None."""
+    if not db.exists():
+        return None
     try:
-        conn = sqlite3.connect(f'file:{EDITOR_DB}?mode=ro', uri=True, timeout=5)
+        conn = sqlite3.connect(f'file:{db}?mode=ro', uri=True, timeout=5)
         conn.row_factory = sqlite3.Row
         row = conn.execute('SELECT password_hash, is_admin FROM users WHERE username = ?',
                            ((username or '').strip(),)).fetchone()
         conn.close()
+        return row
     except sqlite3.Error:
-        return False
+        return None
+
+
+def check_admin(username: str, password: str) -> bool:
+    """
+    Accounts are shared across the suite, so the MoClo user table is the
+    directory and is consulted first. The Plasmid Editor's own table is the
+    fallback, for a deployment without the MoClo tool.
+
+    Only administrators get in: this console can overwrite every database.
+    """
+    row = _lookup(MOCLO_DB, username) or _lookup(EDITOR_DB, username)
     if row is None or not row['is_admin']:
         return False
     try:
@@ -157,34 +218,17 @@ def require_admin(fn):
 # Status
 # ---------------------------------------------------------------------------
 
-def disk_free(path: Path) -> dict:
-    try:
-        usage = shutil.disk_usage(path)
-        return {'free': usage.free, 'total': usage.total}
-    except OSError:
-        return {'free': None, 'total': None}
-
-
 def list_archives() -> list:
-    dest = destination()
-    out = []
     try:
-        entries = sorted(dest.glob('lab-suite-*.tar.gz'), reverse=True)
-    except OSError:
-        return out
-    for item in entries:
-        try:
-            stat = item.stat()
-        except OSError:
-            continue
-        out.append({
-            'name': item.name,
-            'bytes': stat.st_size,
-            'created_at': time.strftime('%Y-%m-%d %H:%M', time.localtime(stat.st_mtime)),
-            'has_checksum': item.with_suffix(item.suffix + '.sha256').exists()
-            or Path(str(item) + '.sha256').exists(),
-        })
-    return out
+        found = store().list()
+    except (StorageError, ValueError):
+        return []
+    return [{
+        'name': item['name'],
+        'bytes': item['bytes'],
+        'created_at': time.strftime('%Y-%m-%d %H:%M', time.localtime(item['mtime'])),
+        'has_checksum': item['has_checksum'],
+    } for item in found]
 
 
 @app.route('/api/session')
@@ -200,6 +244,11 @@ def session_status():
 def login():
     data = request.get_json(silent=True) or {}
     username = data.get('username', '')
+    if data.get('password') == MOCLO_DEFAULT_PASSWORD:
+        # Published in the MoClo tool's source, so it proves nothing. This
+        # console can overwrite every database; it must not open with it.
+        return jsonify({'error': "That is the MoClo tool's published default password. "
+                                 'Change it first, then sign in here.'}), 403
     if not check_admin(username, data.get('password', '')):
         time.sleep(1)       # blunt the obvious guessing attack
         return jsonify({'error': 'Not an administrator account, or the password is wrong'}), 401
@@ -220,21 +269,38 @@ def logout():
 @require_admin
 def status():
     settings = load_settings()
-    dest = Path(settings['destination'])
-    marker = dest / '.backup-target'
+    target = None
+    try:
+        target = store()
+        state = target.check()
+        label = target.describe()
+        disk = target.free() if state['reachable'] else {'free': None, 'total': None}
+    except ValueError as exc:       # a share setting that no longer parses
+        state = {'reachable': False, 'marked': False, 'writable': False, 'error': str(exc)}
+        label, disk = settings.get('smb_path', ''), {'free': None, 'total': None}
+    # The outcome of the last run is kept locally, so it shows even when the
+    # destination cannot be reached; older installs only have it there.
     last = {}
     try:
-        last = json.loads((dest / 'status.json').read_text())
+        last = json.loads(storage.last_status_file().read_text())
     except (OSError, ValueError):
-        pass
-    archives = list_archives()
+        if target is not None and state['reachable']:
+            try:
+                last = json.loads(target.read_text('status.json'))
+            except (StorageError, ValueError):
+                pass
+    archives = list_archives() if state['reachable'] else []
     return jsonify({
         'settings': settings,
         'allowed_roots': [str(r) for r in ALLOWED_ROOTS],
-        'destination_exists': dest.is_dir(),
-        'destination_marked': marker.exists(),
-        'destination_writable': os.access(dest, os.W_OK) if dest.is_dir() else False,
-        'disk': disk_free(dest),
+        'destination_type': settings.get('destination_type', 'folder'),
+        'destination_label': label,
+        'destination_error': state['error'],
+        'smb_password_set': bool(storage.smb_password()),
+        'destination_exists': state['reachable'],
+        'destination_marked': state['marked'],
+        'destination_writable': state['writable'],
+        'disk': disk,
         'last_run': last,
         'archive_count': len(archives),
         'newest': archives[0] if archives else None,
@@ -305,8 +371,138 @@ def prepare_destination():
         'network drive is never silently filled up instead.\n')
     settings = load_settings()
     settings['destination'] = str(dest)
+    settings['destination_type'] = 'folder'
     save_settings(settings)
     return jsonify({'ok': True, 'destination': str(dest)})
+
+
+def _share_from(data: dict):
+    """A share store from the form, reusing the saved password if none is typed."""
+    location = (data.get('path') or '').strip()
+    storage.parse_share(location)           # raises ValueError with a plain message
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    if not password and username == load_settings().get('smb_username', ''):
+        password = storage.smb_password()
+    return storage.SmbStore(location, username, password), username, password
+
+
+@app.route('/api/destination/share/test', methods=['POST'])
+@require_admin
+def test_share():
+    """Try a network share without changing anything."""
+    try:
+        target, _, _ = _share_from(request.get_json(silent=True) or {})
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    state = target.check()
+    if state['error'] and not state['reachable'] and 'does not exist' not in state['error']:
+        return jsonify({'error': state['error']}), 400
+    archives = 0
+    if state['reachable']:
+        try:
+            archives = len(target.list())
+        except StorageError:
+            pass
+    return jsonify({'ok': True, 'location': target.describe(), 'exists': state['reachable'],
+                    'marked': state['marked'], 'writable': state['writable'],
+                    'archives': archives, 'note': state['error']})
+
+
+@app.route('/api/destination/share', methods=['POST'])
+@require_admin
+def use_share():
+    """
+    Back up to a folder on a network share from now on.
+
+    The folder is created if need be, written to as a test, and marked, so the
+    nightly job will use it. The password is stored apart from the settings,
+    readable only inside the backup containers, and never sent back.
+    """
+    try:
+        target, username, password = _share_from(request.get_json(silent=True) or {})
+        target.prepare()
+    except (ValueError, StorageError) as exc:
+        return jsonify({'error': str(exc)}), 400
+    storage.save_smb_password(password)
+    settings = load_settings()
+    settings.update({'destination_type': 'smb', 'smb_path': target.describe(),
+                     'smb_username': username})
+    save_settings(settings)
+    return jsonify({'ok': True, 'destination': target.describe()})
+
+
+@app.route('/api/browse')
+@require_admin
+def browse():
+    """
+    List the folders inside a path, for choosing a destination.
+
+    Only folders are listed, and only within the allowed roots, so this cannot
+    be used to look around the rest of the server. Asking for nothing lists the
+    roots themselves.
+    """
+    raw = (request.args.get('path') or '').strip()
+    if not raw:
+        return jsonify({
+            'path': '', 'parent': None, 'is_root_list': True,
+            'entries': [{'name': str(r), 'path': str(r), 'exists': r.is_dir()}
+                        for r in ALLOWED_ROOTS],
+        })
+    try:
+        here = validate_destination(raw)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    if not here.is_dir():
+        return jsonify({'error': f'{here} is not a folder on the server'}), 404
+
+    entries = []
+    try:
+        for item in sorted(here.iterdir(), key=lambda p: p.name.lower()):
+            if not item.is_dir() or item.name.startswith('.'):
+                continue
+            try:
+                count = sum(1 for _ in item.glob('lab-suite-*.tar.gz'))
+            except OSError:
+                count = 0
+            entries.append({'name': item.name, 'path': str(item), 'archives': count,
+                            'writable': os.access(item, os.W_OK)})
+    except PermissionError:
+        return jsonify({'error': f'No permission to read {here}'}), 403
+
+    # Offer the parent only while it stays inside an allowed root.
+    parent = None
+    if str(here) not in [str(r) for r in ALLOWED_ROOTS]:
+        try:
+            parent = str(validate_destination(str(here.parent)))
+        except ValueError:
+            parent = None
+    return jsonify({
+        'path': str(here), 'parent': parent, 'is_root_list': False,
+        'writable': os.access(here, os.W_OK),
+        'archives': sum(1 for _ in here.glob('lab-suite-*.tar.gz')),
+        'entries': entries,
+    })
+
+
+@app.route('/api/browse/mkdir', methods=['POST'])
+@require_admin
+def make_folder():
+    """Create a folder while choosing a destination."""
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name or '/' in name or name in ('.', '..') or name.startswith('.'):
+        return jsonify({'error': 'Give a simple folder name'}), 400
+    try:
+        parent = validate_destination(data.get('path') or '')
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    target = parent / name
+    try:
+        target.mkdir(parents=False, exist_ok=True)
+    except OSError as exc:
+        return jsonify({'error': f'Could not create {target}: {exc}'}), 400
+    return jsonify({'ok': True, 'path': str(target)})
 
 
 @app.route('/api/backup/run', methods=['POST'])
@@ -335,12 +531,24 @@ def run_backup():
 @require_admin
 def download(name):
     try:
-        path = archive_path(name)
+        check_archive_name(name)
+        target = store()
+        if not target.exists(name):
+            return jsonify({'error': 'No such archive'}), 404
+        in_place = target.local_path(name)
+        if in_place is not None:
+            return send_file(in_place, as_attachment=True, download_name=name)
+        # From a share: fetched to a temporary file, removed once it is sent.
+        tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        local = Path(tmp.name) / name
+        target.fetch(name, local)
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
-    if not path.is_file():
-        return jsonify({'error': 'No such archive'}), 404
-    return send_file(path, as_attachment=True, download_name=name)
+    except StorageError as exc:
+        return jsonify({'error': str(exc)}), 502
+    response = send_file(local, as_attachment=True, download_name=name)
+    response.call_on_close(tmp.cleanup)
+    return response
 
 
 @app.route('/api/archives/upload', methods=['POST'])
@@ -353,17 +561,19 @@ def upload():
     name = os.path.basename(item.filename or '')
     if not ARCHIVE_RE.match(name):
         return jsonify({'error': 'Expected a lab-suite-YYYY-MM-DD_HHMMSS.tar.gz archive'}), 400
-    dest = destination()
-    if not dest.is_dir():
-        return jsonify({'error': f'{dest} is not available'}), 400
-    target = dest / name
-    staging = target.with_suffix('.part')
-    item.save(staging)
-    problem = inspect_archive(staging)
-    if problem:
-        staging.unlink(missing_ok=True)
-        return jsonify({'error': f'That archive is not usable: {problem}'}), 400
-    staging.replace(target)
+    target = store()
+    if not target.check()['reachable']:
+        return jsonify({'error': f'{target.describe()} is not available'}), 400
+    with tempfile.TemporaryDirectory() as tmp:
+        staging = Path(tmp) / name
+        item.save(staging)
+        problem = inspect_archive(staging)
+        if problem:
+            return jsonify({'error': f'That archive is not usable: {problem}'}), 400
+        try:
+            target.put(staging, name)
+        except (StorageError, OSError) as exc:
+            return jsonify({'error': f'Could not store the archive: {exc}'}), 502
     return jsonify({'ok': True, 'name': name, 'archives': list_archives()})
 
 
@@ -409,11 +619,18 @@ def extract_databases(path: Path, into: Path) -> dict:
 @require_admin
 def verify(name):
     try:
-        path = archive_path(name)
+        check_archive_name(name)
+        if not store().exists(name):
+            return jsonify({'error': 'No such archive'}), 404
+        with _LocalCopy(name) as path:
+            return _verify(path)
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
-    if not path.is_file():
-        return jsonify({'error': 'No such archive'}), 404
+    except StorageError as exc:
+        return jsonify({'error': str(exc)}), 502
+
+
+def _verify(path: Path):
     problem = inspect_archive(path)
     if problem:
         return jsonify({'ok': False, 'error': problem}), 400
@@ -449,12 +666,18 @@ def restore(name):
     if data.get('confirm') != name:
         return jsonify({'error': 'Confirm the restore by sending the archive name'}), 400
     try:
-        path = archive_path(name)
+        check_archive_name(name)
+        if not store().exists(name):
+            return jsonify({'error': 'No such archive'}), 404
+        with _LocalCopy(name) as path:
+            return _restore(path)
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
-    if not path.is_file():
-        return jsonify({'error': 'No such archive'}), 404
+    except StorageError as exc:
+        return jsonify({'error': str(exc)}), 502
 
+
+def _restore(path: Path):
     results = []
     with tempfile.TemporaryDirectory() as tmp:
         found = extract_databases(path, Path(tmp))
@@ -509,13 +732,16 @@ def restore(name):
 @require_admin
 def delete_archive(name):
     try:
-        path = archive_path(name)
+        check_archive_name(name)
+        target = store()
+        if not target.exists(name):
+            return jsonify({'error': 'No such archive'}), 404
+        target.delete(name)
+        target.delete(name + '.sha256')
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
-    if not path.is_file():
-        return jsonify({'error': 'No such archive'}), 404
-    path.unlink()
-    Path(str(path) + '.sha256').unlink(missing_ok=True)
+    except StorageError as exc:
+        return jsonify({'error': str(exc)}), 502
     return jsonify({'ok': True, 'archives': list_archives()})
 
 
