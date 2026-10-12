@@ -14,8 +14,8 @@ First release.
 
 | Component | Version |
 | --- | --- |
-| MoClo Library Tool | 1.11.4 |
-| Plasmid Editor | 0.2.0 |
+| MoClo Library Tool | 1.12.0 |
+| Plasmid Editor | 0.2.1 |
 | Backup service | 1.0.0 |
 
 ### Added

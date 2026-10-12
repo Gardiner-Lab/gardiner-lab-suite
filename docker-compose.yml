@@ -38,7 +38,7 @@ services:
       retries: 3
 
   moclo:
-    image: ghcr.io/gardiner-lab/moclo-library-tool:${MOCLO_VERSION:-1.11.4}
+    image: ghcr.io/gardiner-lab/moclo-library-tool:${MOCLO_VERSION:-1.12.0}
     container_name: moclo-library-tool
     volumes:
       - moclo-data:/data
@@ -48,13 +48,21 @@ services:
       - DATABASE_PATH=/data/moclo.db
       - PARTS_DATABASE_PATH=/data/parts.db
       - BACKUP_DIR=/data/backups
+      # Part of the suite: a "Lab tools" link to the landing page, and accounts
+      # created on the one registration page (which asks for the lab and its
+      # registration code) rather than MoClo's own.
+      - SUITE_HOME_URL=/
+      - REGISTRATION_URL=/editor/login?register
+      # The first admin's password on a new installation, instead of MoClo's
+      # published default.
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     restart: unless-stopped
     # Not published on the host: reached through the proxy at "/".
     expose:
       - "5000"
 
   editor:
-    image: ghcr.io/gardiner-lab/plasmid-editor:${EDITOR_VERSION:-0.2.0}
+    image: ghcr.io/gardiner-lab/plasmid-editor:${EDITOR_VERSION:-0.2.1}
     container_name: plasmid-editor
     # MoClo creates its default admin account as it starts. Waiting for it
     # means the editor always sees that account, and replaces its published
