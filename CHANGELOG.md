@@ -13,9 +13,13 @@ and the project uses [semantic versioning](https://semver.org/).
 | Component | Version |
 | --- | --- |
 | MoClo Library Tool | 1.13.0 |
-| Plasmid Editor | 0.3.1 |
+| Plasmid Editor | 0.3.2 |
 | Sign-in service | 2.0.2 |
 | Backup service | 2.0.2 |
+
+### Changed
+- Plasmid Editor 0.3.2: select and copy amino acids on a translation, Find's
+  selected match is visible, and the Enzymes panel's Choose… button fits.
 
 ### Fixed
 - The proxy and the sign-in service reported themselves unhealthy in
