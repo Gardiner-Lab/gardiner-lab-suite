@@ -48,9 +48,10 @@ import labs
 
 APP_VERSION = '2.0.0'
 
-# The MoClo tool creates 'admin' with this password when no such account exists.
-# It is published in MoClo's source, so it proves nothing about who is signing
-# in, and with one sign-in for everything it would open every tool.
+# The first administrator's password on a new installation (MoClo creates
+# 'admin' with it). It is published, so it may be used once only: whoever
+# signs in with it is asked to choose a new password, and until they do the
+# only thing open to them is that (see must_change below).
 MOCLO_DEFAULT_PASSWORD = 'admin123'
 
 # Where people land after signing in, when the page they came from is unknown.
@@ -87,6 +88,11 @@ def password_stamp(password_hash: str) -> str:
     password changes it, which ends every session made with the old one.
     """
     return hashlib.sha256((password_hash or '').encode()).hexdigest()[:16]
+
+
+def must_change() -> bool:
+    """Signed in with the published default password, and not yet chosen a new one."""
+    return bool(session.get('must_change'))
 
 
 def signed_in_account():
@@ -164,6 +170,9 @@ def check():
     the sign-in page (see /api/signin).
     """
     account = signed_in_account()
+    # Signed in with the default password: nothing opens until it is changed.
+    if account is not None and must_change():
+        account = None
     if account is None and requested_path() not in PUBLIC_PATHS:
         response = make_response('', 401)
     else:
@@ -183,6 +192,8 @@ def signin_first():
     """
     target = request.headers.get('X-Original-URI', '') or '/'
     login = f'{PREFIX}/login?next={quote(safe_next(target), safe="/")}'
+    if signed_in_account() is not None and must_change():
+        login = f'{PREFIX}/#account'          # choose a new password first
     if request.method == 'GET' and 'text/html' in request.headers.get('Accept', ''):
         response = redirect(login)
     else:
@@ -202,7 +213,7 @@ def session_status():
     if account is not None:
         member = labs.membership(account['username'])
         user = {'username': account['username'], 'is_admin': account['is_admin'],
-                'role': role_of(account), 'lab': member['lab']}
+                'role': role_of(account), 'lab': member['lab'], 'must_change': must_change()}
     return jsonify({'authenticated': account is not None, 'user': user,
                     'registration_open': labs.registration_open(), 'version': APP_VERSION})
 
@@ -225,11 +236,12 @@ def login():
     if account is None or not directory.check_password(account, password):
         time.sleep(1)       # blunt the obvious guessing attack
         return jsonify({'error': 'Wrong username or password'}), 401
-    if password == MOCLO_DEFAULT_PASSWORD:
-        return jsonify({'error': "That is the MoClo tool's published default password, which "
-                                 'would open every tool. Set ADMIN_PASSWORD in the .env file '
-                                 'and run ./install.sh again to replace it.'}), 403
     start_session(account)
+    if password == MOCLO_DEFAULT_PASSWORD:
+        # The published default: let them in only to choose a new password.
+        session['must_change'] = True
+        return jsonify({'authenticated': True, 'username': account['username'], 'must_change': True,
+                        'next': f'{PREFIX}/#account'})
     return jsonify({'authenticated': True, 'username': account['username'],
                     'next': safe_next(str(data.get('next') or ''))})
 
@@ -305,6 +317,8 @@ def require_lab_admin(fn):
         account = signed_in_account()
         if account is None:
             return jsonify({'error': 'Sign in first'}), 401
+        if must_change():
+            return jsonify({'error': 'Choose a new password first, under My account'}), 403
         role = role_of(account)
         if role not in ('admin', 'lab_lead'):
             return jsonify({'error': 'Only administrators and lab leads can manage labs'}), 403
@@ -347,7 +361,7 @@ def change_password():
         return jsonify({'error': 'Your current password is not right'}), 403
     new = str(data.get('new') or '')
     if new == MOCLO_DEFAULT_PASSWORD:
-        return jsonify({'error': 'Choose a password of your own'}), 400
+        return jsonify({'error': 'That is the published default password; choose one of your own'}), 400
     try:
         start_session(directory.set_password(account['username'], new))
     except (ValueError, LookupError) as exc:

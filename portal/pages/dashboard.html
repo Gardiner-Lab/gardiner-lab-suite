@@ -189,10 +189,15 @@ const accountTab = {
       try {
         await api('POST', 'api/account/password', { current: $('pwCurrent').value, new: $('pwNew').value });
         form.reset();
+        if (me.must_change) { location.href = '/'; return; }      // everything is open now
         toast('Password changed. You are signed out everywhere else.');
       } catch (err) { toast(err.message, 'bad'); }
     });
-    panel.replaceChildren(el('div', { class: 'card' },
+    panel.replaceChildren(
+      me.must_change ? el('div', { class: 'alert warn' },
+        'You signed in with the default password, which is published. Choose a new one to continue: '
+        + 'nothing else opens until you do.') : '',
+      el('div', { class: 'card' },
       el('h2', {}, 'My account'),
       el('dl', { class: 'facts' },
         el('dt', {}, 'Username'), el('dd', {}, me.username),
@@ -411,8 +416,9 @@ async function copyText(code) {
     return;
   }
   $('who').textContent = `${me.username} · ${ROLE_NAMES[me.role]}`;
-  const own = [accountTab, labsTab, usersTab].filter((t) => allowed(t.roles));
-  const fromTools = (await toolTabs()).map(frameTab);
+  // Signed in with the default password: only My account, to change it.
+  const own = me.must_change ? [accountTab] : [accountTab, labsTab, usersTab].filter((t) => allowed(t.roles));
+  const fromTools = me.must_change ? [] : (await toolTabs()).map(frameTab);
   // Your own things first, then administration; the suite's tabs lead each.
   tabs = [...own, ...fromTools].sort((a, b) =>
     (a.section === 'me' ? 0 : 1) - (b.section === 'me' ? 0 : 1));

@@ -52,9 +52,12 @@ suite is running, `./install.sh --rollback` still goes back to the old MoClo
 (anything done in the suite since is not carried back). When you are happy,
 remove the old container with the `docker rm` command the installer prints.
 
-If MoClo's `admin` account still has the published default password
-(`admin123`), the suite replaces it with a new one, printed at the end. That
-password would otherwise open every tool, the backup console included.
+A new installation starts with the administrator `admin` / `admin123`, as
+MoClo does. Because that password is published and one sign-in opens every
+tool (the backup console included), signing in with it opens only *My account*,
+to choose a new password; nothing else opens until that is done. The same goes
+for a MoClo taken over whose `admin` still has it. Set `ADMIN_PASSWORD` in
+`.env` before installing to start with your own password instead.
 
 | Option | Use |
 | --- | --- |
@@ -277,7 +280,7 @@ convenient way to signal what is coming.
 | `MOCLO_SECRET_KEY` | — | **Required.** Signs MoClo sessions. Use a different value. |
 | `SUITE_SECRET_KEY` | `SECRET_KEY` | Signs the suite's sign-in, which every tool trusts. |
 | `SUITE_PORT` | `8080` | Host port for the whole suite. |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / — | Creates the editor's first admin. |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / — | The first administrator's password. Empty: `admin123`, which must be changed at the first sign-in. |
 | `ALLOW_REGISTRATION` | `true` | Set `false` to close registration. |
 | `REQUIRE_REGISTRATION_CODE` | `true` | Set `false` to let anyone register without a lab's code. |
 | `DEFAULT_LAB_SOURCE` | — | The first lab, created with its own code on a new installation. |

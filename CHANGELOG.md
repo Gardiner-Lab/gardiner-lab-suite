@@ -51,6 +51,10 @@ and the project uses [semantic versioning](https://semver.org/).
 - The labs, codes, memberships and lab leads set on the Plasmid Editor's Admin
   page are brought over when the suite first starts, so codes already handed out
   keep working.
+- A new installation starts with the administrator `admin` / `admin123` (set
+  `ADMIN_PASSWORD` to start with your own). Signing in with `admin123` opens
+  only My account, to choose a new password; no tool, page or administration
+  opens until it is changed, and it cannot be chosen again.
 - The installer no longer makes up a registration code (`REGISTRATION_CODE`);
   it prints the one the suite generated. `REQUIRE_REGISTRATION_CODE=false` lets
   anyone register without one.

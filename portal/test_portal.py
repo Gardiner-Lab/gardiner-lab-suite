@@ -139,10 +139,26 @@ def test_wrong_password_is_refused(portal):
     assert check(client).status_code == 401
 
 
-def test_the_published_default_password_never_signs_in(portal):
-    _, client, _ = portal
-    assert sign_in(client, 'admin', 'admin123').status_code == 403
-    assert check(client).status_code == 401
+def test_the_default_password_signs_in_only_to_change_it(portal):
+    module, client, _ = portal
+    r = sign_in(client, 'admin', 'admin123', next='/parts')
+    assert r.status_code == 200
+    assert r.get_json()['must_change'] is True and r.get_json()['next'] == '/account/#account'
+    assert client.get('/api/session').get_json()['user']['must_change'] is True
+    # Nothing opens yet: no tool, no landing page, no administration.
+    assert check(client, '/parts').status_code == 401
+    assert check(client, '/').status_code == 401
+    assert client.get('/api/admin/overview').status_code == 403
+    page = client.get('/api/signin', headers={'X-Original-URI': '/parts', 'Accept': 'text/html'})
+    assert page.headers['Location'] == '/account/#account'
+    # The default cannot be chosen again; a new password opens everything.
+    assert client.post('/api/account/password', json={'current': 'admin123', 'new': 'admin123'}).status_code == 400
+    assert client.post('/api/account/password', json={'current': 'admin123', 'new': 'a-real-password'}).status_code == 200
+    assert check(client, '/parts').headers['X-Suite-User'] == 'admin'
+    assert client.get('/api/session').get_json()['user']['must_change'] is False
+    assert client.get('/api/admin/overview').status_code == 200
+    # And the default no longer works at all.
+    assert sign_in(module.app.test_client(), 'admin', 'admin123').status_code == 401
 
 
 def test_signing_out_ends_it_everywhere(portal):

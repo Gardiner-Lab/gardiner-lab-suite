@@ -339,12 +339,11 @@ if [ -n "$SRC" ]; then
 fi
 
 # --- an administrator --------------------------------------------------------
-# The MoClo tool creates "admin" with a published password whenever no account
-# of that name exists. The editor replaces that password with this one as the
-# suite starts, so the well-known one never opens the suite. A lab whose admin
-# already has its own password keeps it.
+# A new installation starts with "admin" / "admin123", MoClo's default. It is
+# published, so the suite's sign-in lets it in only to choose a new password,
+# and nothing else opens until that is done. ADMIN_PASSWORD in .env, if set,
+# is used instead. A lab whose admin already has its own password keeps it.
 set_env ADMIN_USERNAME admin
-set_env ADMIN_PASSWORD "$(random_secret | cut -c1-16)"
 
 # --- start ------------------------------------------------------------------
 step "Starting the suite"
@@ -366,7 +365,7 @@ done
 ok "MoClo Library Tool and Plasmid Editor are answering"
 
 # Which password the admin account has now: the one in .env, the lab's own,
-# or (only if something went wrong) still MoClo's published default.
+# or the starting default, to be changed at the first sign-in.
 admin_password="$(grep -E '^ADMIN_PASSWORD=' .env | cut -d= -f2-)"
 admin_state="$(docker exec -e PW="$admin_password" plasmid-editor python -c "
 import bcrypt, os, sqlite3
@@ -375,10 +374,6 @@ row = sqlite3.connect('file:/moclo/moclo.db?mode=ro', uri=True).execute(
 check = lambda pw: bool(pw) and bcrypt.checkpw(pw.encode(), row[0].encode())
 print('none' if row is None else 'env' if check(os.environ['PW']) else
       'default' if check('admin123') else 'own')" 2>/dev/null || echo unknown)"
-if [ "$admin_state" = default ]; then
-    warn "the admin account still has the MoClo tool's published password (admin123)."
-    warn "Restart the editor (docker compose restart editor) or change it at once."
-fi
 
 if [ "$UPDATED" = 0 ] && [ -n "${SRC:-}" ]; then
     editor_users="$(docker exec plasmid-editor python -c "
@@ -393,7 +388,14 @@ fi
 
 step "Done"
 info "Open http://$(hostname):$PORT/  (or http://localhost:$PORT/ on this machine)"
-if [ "$admin_state" = env ] && [ "$UPDATED" = 0 ]; then
+if [ "$admin_state" = default ]; then
+    info ""
+    info "${B}Administrator account${N}:"
+    info "    username: admin"
+    info "    password: admin123"
+    info "Sign in with it once: you are asked to choose a new password, and nothing"
+    info "else opens until you do."
+elif [ "$admin_state" = env ] && [ "$UPDATED" = 0 ]; then
     info ""
     info "${B}Administrator account${N} (it is also in .env):"
     info "    username: admin"
