@@ -20,7 +20,8 @@
     min-height: 100vh; display: flex; flex-direction: column;
   }
   .wrap { width: 100%; max-width: 68rem; margin: 0 auto; padding: 0 1rem; }
-  header { padding: 3.5rem 0 2rem; text-align: center; }
+  header { padding: 0 0 2rem; text-align: center; }
+  header .wrap { padding-top: 2.5rem; }
   h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 700; letter-spacing: -.02em; }
   h1 .mark { color: var(--primary); }
   .tagline { color: var(--muted); font-size: 1.05rem; margin-top: .4rem; }
@@ -64,10 +65,15 @@
   footer { border-top: 1px solid var(--border); background: var(--card); padding: 1.1rem 0; color: var(--muted); font-size: .825rem; }
   footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
   .error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; border-radius: .5rem; padding: 1rem; }
+  .account-bar { display: flex; justify-content: flex-end; gap: 1rem; padding: .75rem 1rem 0;
+                 font-size: .9rem; color: var(--muted); max-width: 68rem; margin: 0 auto; }
+  .account-bar a { color: var(--primary); font-weight: 600; text-decoration: none; }
+  .account-bar a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
 <header>
+  <div class="account-bar" id="accountBar"></div>
   <div class="wrap">
     <h1><span class="mark">&#129516;</span> <span id="suiteName">Gardiner Lab Tools</span></h1>
     <p class="tagline" id="tagline"></p>
@@ -120,20 +126,25 @@ function card(tool) {
 }
 
 /**
- * Is whoever is looking at this page an administrator?
- *
- * Accounts are shared across the suite, so the Plasmid Editor's session is
- * asked. Anyone not signed in simply does not see the administration section.
+ * Who is looking at this page, from the suite's sign-in. Only someone signed
+ * in gets this page at all; only administrators see the administration section.
  */
-async function viewerIsAdmin() {
+async function viewer() {
   try {
-    const res = await fetch('/editor/api/auth/session', { credentials: 'same-origin', cache: 'no-store' });
-    if (!res.ok) return false;
+    const res = await fetch('/account/api/session', { credentials: 'same-origin', cache: 'no-store' });
+    if (!res.ok) return null;
     const session = await res.json();
-    return Boolean(session.authenticated && session.user && session.user.is_admin);
+    return session.authenticated ? session.user : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** Your name, the dashboard (every account and admin control) and signing out. */
+function accountBar(user) {
+  if (!user) return;
+  document.getElementById('accountBar').innerHTML =
+    `<span>${esc(user.username)}</span><a href="/account/">Dashboard</a><a href="/account/logout">Sign out</a>`;
 }
 
 /** A tool is "running" if its health endpoint answers; purely informational. */
@@ -164,8 +175,10 @@ async function checkHealth(el) {
     // Administrative tools are shown only to administrators. This is for
     // tidiness, not security: each one requires an administrator sign-in of
     // its own, and hiding a card protects nothing by itself.
+    const user = await viewer();
+    accountBar(user);
     const admin = registry.admin || [];
-    if (admin.length && await viewerIsAdmin()) {
+    if (admin.length && user && user.is_admin) {
       document.getElementById('adminSection').hidden = false;
       document.getElementById('admin').innerHTML = admin.map(card).join('');
     }

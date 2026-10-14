@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create an account · Gardiner Lab Tools</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#129516;</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="centred">
+<main class="card">
+  <h1>Create an account</h1>
+  <p class="hint lead">One account for every lab tool. You need your lab's registration code:
+    ask your lab lead or an administrator for it.</p>
+  <div id="alert" role="alert"></div>
+  <form id="form" hidden>
+    <div class="field">
+      <label for="lab" id="labLabel">Lab</label>
+      <select id="lab"></select>
+      <input id="labName" maxlength="100" autocomplete="organization" hidden>
+      <span class="hint" id="labHint"></span>
+    </div>
+    <div class="field" id="codeField">
+      <label for="code">Registration code</label>
+      <input id="code" class="mono" autocomplete="off" spellcheck="false" autocapitalize="off"
+             placeholder="e.g. maple-orchid-reed-42">
+    </div>
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" autocomplete="username" required minlength="3" maxlength="32"
+             pattern="[A-Za-z0-9._\-]{3,32}">
+      <span class="hint">3 to 32 letters, digits, dots, dashes or underscores.</span>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="new-password" required minlength="8">
+      <span class="hint">At least 8 characters.</span>
+    </div>
+    <button class="btn wide" id="submit" type="submit">Create account</button>
+  </form>
+  <div class="foot">
+    <a id="signin" href="login">I already have an account</a>
+  </div>
+</main>
+<script>
+const next = new URLSearchParams(location.search).get('next') || '';
+if (next) document.getElementById('signin').href = `login?next=${encodeURIComponent(next)}`;
+const $ = (id) => document.getElementById(id);
+let codeRequired = true;
+
+function alertBox(kind, message) {
+  const box = document.createElement('div');
+  box.className = `alert ${kind}`;
+  box.textContent = message;
+  $('alert').replaceChildren(box);
+}
+
+async function load() {
+  try {
+    const info = await (await fetch('api/labs', { cache: 'no-store' })).json();
+    if (!info.registration_open) {
+      alertBox('warn', 'Registration is closed on this server. Ask an administrator for an account.');
+      return;
+    }
+    codeRequired = info.code_required;
+    const open = info.labs.filter((l) => l.open);
+    if (codeRequired) {
+      // Choose from the labs an administrator set up; the code decides.
+      $('lab').replaceChildren(
+        new Option(open.length ? 'Choose your lab…' : 'No lab is taking new members', ''),
+        ...open.map((l) => new Option(l.name, l.id)));
+      $('lab').required = true;
+      $('code').required = true;
+      $('labHint').textContent = 'The lab you work in. Each lab has its own code.';
+    } else {
+      // No codes in use, or the first account of a new installation: name the lab.
+      $('lab').hidden = true;
+      $('labName').hidden = false;
+      $('labName').required = true;
+      $('labName').value = info.default_lab || '';
+      $('labLabel').htmlFor = 'labName';
+      $('codeField').hidden = true;
+      $('labHint').textContent = 'The lab you work in.';
+    }
+    $('form').hidden = false;
+  } catch {
+    alertBox('bad', 'Could not load the labs. Try again in a minute.');
+  }
+}
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('submit').disabled = true;
+  try {
+    const res = await fetch('api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lab: codeRequired ? $('lab').value : $('labName').value,
+        code: $('code').value,
+        username: $('username').value,
+        password: $('password').value,
+        next,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `Could not create the account (${res.status})`);
+    location.href = body.next || '/';
+  } catch (err) {
+    alertBox('bad', err.message);
+    $('submit').disabled = false;
+  }
+});
+
+load();
+</script>
+</body>
+</html>

@@ -11,6 +11,10 @@
 # override a pin, for trying a newer release of one tool. They share the moclo-data volume so the Plasmid
 # Editor can read the MoClo databases and write changes back to them.
 #
+# One sign-in for every tool: the portal service owns the session, the proxy
+# asks it who is signed in before each request, and every tool runs with
+# SUITE_AUTH=proxy so it takes that answer instead of signing people in itself.
+#
 # To add a tool: add a service below, a location block in nginx/default.conf,
 # and an entry in landing/tools.json.
 
@@ -27,6 +31,7 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./landing:/usr/share/nginx/html:ro
     depends_on:
+      - portal
       - moclo
       - editor
       - backup-console
@@ -37,8 +42,37 @@ services:
       timeout: 5s
       retries: 3
 
+  # Sign-in, registration and labs for the whole suite, at /account/. The proxy
+  # asks it who is signed in before every request to a tool, so the tools are
+  # unreachable while it is down. It adds accounts to the directory (MoClo's
+  # users table) and keeps the labs, their registration codes and who is in
+  # which lab in suite-data, which the tools read.
+  portal:
+    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.0.0}
+    container_name: lab-portal
+    # New accounts go into MoClo's directory, so it must exist first.
+    depends_on:
+      moclo:
+        condition: service_healthy
+    volumes:
+      - moclo-data:/moclo
+      # Read once, to bring over the labs the editor used to keep.
+      - editor-data:/data:ro
+      - suite-data:/suite
+    environment:
+      - SECRET_KEY=${SUITE_SECRET_KEY:-${SECRET_KEY}}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      # The first lab, created with a generated registration code on a new
+      # installation.
+      - DEFAULT_LAB_SOURCE=${DEFAULT_LAB_SOURCE:-}
+      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
+      - REQUIRE_REGISTRATION_CODE=${REQUIRE_REGISTRATION_CODE:-true}
+    restart: unless-stopped
+    expose:
+      - "5003"
+
   moclo:
-    image: ghcr.io/gardiner-lab/moclo-library-tool:${MOCLO_VERSION:-1.12.0}
+    image: ghcr.io/gardiner-lab/moclo-library-tool:${MOCLO_VERSION:-1.13.0}
     container_name: moclo-library-tool
     volumes:
       - moclo-data:/data
@@ -52,7 +86,15 @@ services:
       # created on the one registration page (which asks for the lab and its
       # registration code) rather than MoClo's own.
       - SUITE_HOME_URL=/
-      - REGISTRATION_URL=/editor/login?register
+      - REGISTRATION_URL=/account/register
+      # Signed in by the suite: the proxy says who is signed in, and MoClo's
+      # own sign-in and sign-out pages send people to the suite's. Accounts and
+      # the library are managed on the suite's dashboard, whose tabs show
+      # MoClo's own Dashboard and Admin pages.
+      - SUITE_AUTH=proxy
+      - SUITE_LOGIN_URL=/account/login
+      - SUITE_LOGOUT_URL=/account/logout
+      - SUITE_DASHBOARD_URL=/account/
       # The first admin's password on a new installation, instead of MoClo's
       # published default.
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
@@ -62,7 +104,7 @@ services:
       - "5000"
 
   editor:
-    image: ghcr.io/gardiner-lab/plasmid-editor:${EDITOR_VERSION:-0.2.1}
+    image: ghcr.io/gardiner-lab/plasmid-editor:${EDITOR_VERSION:-0.3.0}
     container_name: plasmid-editor
     # MoClo creates its default admin account as it starts. Waiting for it
     # means the editor always sees that account, and replaces its published
@@ -73,6 +115,8 @@ services:
     volumes:
       - editor-data:/data
       - moclo-data:/moclo
+      # Who is in which lab, and who leads it: the suite's, read here.
+      - suite-data:/suite:ro
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:?set SECRET_KEY, e.g. openssl rand -hex 32}
@@ -85,10 +129,14 @@ services:
       - MOCLO_BASE_URL=/
       # The launch page, linked from the editor's navigation bar.
       - SUITE_HOME_URL=/
-      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
-      # New members need the lab's registration code, set on the editor's Admin
-      # page. REGISTRATION_CODE only sets the first one.
-      - REGISTRATION_CODE=${REGISTRATION_CODE:-}
+      # Signed in by the suite, as MoClo is. Registration, labs and roles are
+      # the suite's too; the editor's own pages for them send people there.
+      - SUITE_AUTH=proxy
+      - SUITE_LOGIN_URL=/account/login
+      - SUITE_LOGOUT_URL=/account/logout
+      - SUITE_REGISTER_URL=/account/register
+      - SUITE_DASHBOARD_URL=/account/
+      - SUITE_DATABASE_PATH=/suite/suite.db
       - DEFAULT_LAB_SOURCE=${DEFAULT_LAB_SOURCE:-}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
@@ -100,12 +148,13 @@ services:
       - "5001"
 
   backup:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-1.0.0}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.0.0}
     container_name: lab-backup
     volumes:
       # Read-only: the backup never needs to change the live data.
       - moclo-data:/moclo:ro
       - editor-data:/data:ro
+      - suite-data:/suite:ro
       # The network drive, mounted on the host. See docs/BACKUP.md.
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
@@ -130,12 +179,13 @@ services:
   # access to the volumes in order to restore, which is why the nightly job is
   # a separate service that does not.
   backup-console:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-1.0.0}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.0.0}
     container_name: lab-backup-console
     command: ["api"]
     volumes:
       - moclo-data:/moclo
       - editor-data:/data
+      - suite-data:/suite
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
@@ -143,6 +193,12 @@ services:
     environment:
       - TZ=${TZ:-Europe/Amsterdam}
       - SECRET_KEY=${BACKUP_CONSOLE_SECRET:-${SECRET_KEY}}
+      # Signed in by the suite; only administrators get in. It is the Backups
+      # tab of the suite's dashboard.
+      - SUITE_AUTH=proxy
+      - SUITE_LOGIN_URL=/account/login
+      - SUITE_LOGOUT_URL=/account/logout
+      - SUITE_DASHBOARD_URL=/account/
       # Backups may only be written below these paths.
       - ALLOWED_BACKUP_ROOTS=${ALLOWED_BACKUP_ROOTS:-/mnt:/backup}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
@@ -154,12 +210,13 @@ services:
   # deliberately does not have. Kept behind a profile so it never starts with
   # the stack; `make restore` is the way in.
   restore:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-1.0.0}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.0.0}
     container_name: lab-restore
     profiles: ["restore"]
     volumes:
       - moclo-data:/moclo
       - editor-data:/data
+      - suite-data:/suite
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
@@ -171,6 +228,8 @@ volumes:
   # Created by whichever tool starts first and shared by both.
   moclo-data:
   editor-data:
+  # The suite's own: labs, their registration codes, and who is in which.
+  suite-data:
   # Backup settings chosen in the console, shared by the console, the
   # scheduler and the restore service.
   backup-config:

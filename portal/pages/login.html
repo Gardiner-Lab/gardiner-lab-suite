@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in · Gardiner Lab Tools</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#129516;</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="centred">
+<main class="card">
+  <h1>Gardiner Lab Tools</h1>
+  <p class="hint lead">Sign in, or create an account, to use the lab's tools. One account works in
+    all of them.</p>
+  <div id="alert" role="alert"></div>
+  <form id="form">
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" autocomplete="username" required autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn wide" id="submit" type="submit">Sign in</button>
+  </form>
+  <div class="foot">
+    <a id="register" href="register">Create an account</a>
+  </div>
+</main>
+<script>
+const next = new URLSearchParams(location.search).get('next') || '';
+if (next) document.getElementById('register').href = `register?next=${encodeURIComponent(next)}`;
+
+function showError(message) {
+  const box = document.createElement('div');
+  box.className = 'alert bad';
+  box.textContent = message;
+  document.getElementById('alert').replaceChildren(box);
+}
+
+fetch('api/session', { cache: 'no-store' }).then((r) => r.json()).then((s) => {
+  if (!s.registration_open) document.getElementById('register').hidden = true;
+}).catch(() => {});
+
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const button = document.getElementById('submit');
+  button.disabled = true;
+  try {
+    const res = await fetch('api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+        next,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `Sign-in failed (${res.status})`);
+    location.href = body.next || '/';
+  } catch (err) {
+    showError(err.message);
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

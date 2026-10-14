@@ -15,7 +15,9 @@ Two things shape the design:
 * **It is an administrative interface**, so everything behind the login can
   overwrite lab data. Sign-in reuses the Plasmid Editor's admin accounts rather
   than introducing another password, and every path that comes from the browser
-  is validated against an allowed root before it is touched.
+  is validated against an allowed root before it is touched. Inside the suite
+  (SUITE_AUTH=proxy) there is no sign-in here at all: the suite's sign-in says
+  who is there, and only an administrator gets in.
 """
 
 import json
@@ -32,12 +34,12 @@ from functools import wraps
 from pathlib import Path
 
 import bcrypt
-from flask import Flask, jsonify, request, send_file, session
+from flask import Flask, jsonify, redirect, request, send_file, session
 
 import storage
 from storage import StorageError
 
-APP_VERSION = '1.0.0'
+APP_VERSION = '2.0.0'
 
 CONFIG_DIR = Path(os.environ.get('CONFIG_STORE', '/config-store'))
 SETTINGS_FILE = CONFIG_DIR / 'settings.json'
@@ -57,6 +59,7 @@ DATABASES = {
     'moclo.db': Path(os.environ.get('MOCLO_DB', '/moclo/moclo.db')),
     'parts.db': Path(os.environ.get('PARTS_DB', '/moclo/parts.db')),
     'plasmid_editor.db': Path(os.environ.get('EDITOR_DB', '/data/plasmid_editor.db')),
+    'suite.db': Path(os.environ.get('SUITE_DB', '/suite/suite.db')),
 }
 
 # The MoClo tool creates 'admin' with this password when no such account exists.
@@ -205,6 +208,35 @@ def check_admin(username: str, password: str) -> bool:
         return False
 
 
+# Inside the suite, the proxy says who is signed in (X-Suite-User), and people
+# sign in and out on the suite's own page rather than here.
+SUITE_AUTH = os.environ.get('SUITE_AUTH', '').strip().lower() == 'proxy'
+SUITE_LOGIN_URL = os.environ.get('SUITE_LOGIN_URL', '/account/login')
+SUITE_LOGOUT_URL = os.environ.get('SUITE_LOGOUT_URL', '/account/logout')
+# The suite's dashboard, which shows this console in its Backups tab.
+SUITE_DASHBOARD_URL = os.environ.get('SUITE_DASHBOARD_URL', '/account/')
+
+
+@app.before_request
+def follow_suite_sign_in():
+    """Take the suite's signed-in user as this console's, if an administrator."""
+    if not SUITE_AUTH:
+        return
+    username = request.headers.get('X-Suite-User', '').strip()
+    row = (_lookup(MOCLO_DB, username) or _lookup(EDITOR_DB, username)) if username else None
+    if row is not None and row['is_admin']:
+        if session.get('username') != username or not session.get('admin'):
+            session.clear()
+            session['admin'] = True
+            session['username'] = username
+            session.permanent = True
+    else:
+        session.clear()
+        if username:
+            # Signed in to the suite, but not as an administrator.
+            session['visitor'] = username
+
+
 def require_admin(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -233,15 +265,21 @@ def list_archives() -> list:
 
 @app.route('/api/session')
 def session_status():
-    return jsonify({
+    answer = {
         'authenticated': bool(session.get('admin')),
         'username': session.get('username'),
         'version': APP_VERSION,
-    })
+    }
+    if SUITE_AUTH:
+        answer.update(login_url=SUITE_LOGIN_URL, logout_url=SUITE_LOGOUT_URL,
+                      signed_in_as=session.get('username') or session.get('visitor'))
+    return jsonify(answer)
 
 
 @app.route('/api/login', methods=['POST'])
 def login():
+    if SUITE_AUTH:
+        return jsonify({'error': 'Sign in on the lab tools sign-in page', 'login_url': SUITE_LOGIN_URL}), 403
     data = request.get_json(silent=True) or {}
     username = data.get('username', '')
     if data.get('password') == MOCLO_DEFAULT_PASSWORD:
@@ -751,7 +789,19 @@ def delete_archive(name):
 
 @app.route('/')
 def index():
+    # Inside the suite, the console is the Backups tab of its dashboard, shown
+    # there with ?embed=1; opened on its own, it goes to that tab.
+    if SUITE_AUTH and request.args.get('embed') != '1':
+        return redirect(f'{SUITE_DASHBOARD_URL}#backups')
     return send_file(Path(__file__).parent / 'console.html')
+
+
+@app.route('/suite-manifest.json')
+def suite_manifest():
+    """The tab this console adds to the suite's dashboard."""
+    return jsonify({'tool': 'Backups', 'tabs': [
+        {'id': 'backups', 'title': 'Backups', 'icon': '💾', 'section': 'admin',
+         'roles': ['admin'], 'src': '/backup/?embed=1'}]})
 
 
 @app.route('/health')

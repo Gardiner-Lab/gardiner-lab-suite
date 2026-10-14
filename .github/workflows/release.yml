@@ -4,8 +4,9 @@ name: Release
 #
 #   1. checks that the tag matches the backup image version pinned in
 #      docker-compose.yml, and that every other pinned image exists;
-#   2. publishes the backup service as ghcr.io/gardiner-lab/lab-suite-backup,
-#      for Intel and ARM servers;
+#   2. publishes the sign-in and backup services as
+#      ghcr.io/gardiner-lab/lab-suite-portal and lab-suite-backup, for Intel and
+#      ARM servers;
 #   3. creates a GitHub release with that version's CHANGELOG notes and a
 #      download of the suite, for servers without git.
 
@@ -15,7 +16,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: gardiner-lab/lab-suite-backup
 
 jobs:
   release:
@@ -30,22 +30,24 @@ jobs:
       - name: Check versions
         run: |
           version="${GITHUB_REF_NAME#v}"
-          grep -q "lab-suite-backup:\${SUITE_VERSION:-$version}" docker-compose.yml \
-            || { echo "docker-compose.yml does not pin lab-suite-backup to $version"; exit 1; }
+          for service in backup portal; do
+            grep -q "lab-suite-$service:\${SUITE_VERSION:-$version}" docker-compose.yml \
+              || { echo "docker-compose.yml does not pin lab-suite-$service to $version"; exit 1; }
+          done
           grep -q "^## \[$version\]" CHANGELOG.md \
             || { echo "CHANGELOG.md has no section for $version"; exit 1; }
           for image in $(SECRET_KEY=x MOCLO_SECRET_KEY=x docker compose --profile restore config --images | sort -u); do
-            case "$image" in *lab-suite-backup*) continue ;; esac
+            case "$image" in *lab-suite-*) continue ;; esac
             docker manifest inspect "$image" > /dev/null || { echo "Pinned image $image is not published"; exit 1; }
           done
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Backup service tests
+      - name: Sign-in and backup service tests
         run: |
           pip install flask bcrypt pytest
-          pytest -q backup/
+          pytest -q portal/ backup/
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -57,7 +59,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/gardiner-lab/lab-suite-backup
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -68,6 +70,21 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - id: portal-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/gardiner-lab/lab-suite-portal
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./portal
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.portal-meta.outputs.tags }}
+          labels: ${{ steps.portal-meta.outputs.labels }}
 
       - name: Create the GitHub release
         env:

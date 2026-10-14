@@ -14,10 +14,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Backup service tests
+      - name: Sign-in and backup service tests
         run: |
           pip install flask bcrypt pytest
-          pytest -q backup/
+          pytest -q portal/ backup/
 
       - name: Shell scripts
         run: |
@@ -32,12 +32,12 @@ jobs:
       - name: Proxy configuration
         run: |
           docker run --rm --add-host moclo:127.0.0.1 --add-host editor:127.0.0.1 \
-            --add-host backup-console:127.0.0.1 \
+            --add-host backup-console:127.0.0.1 --add-host portal:127.0.0.1 \
             -v "$PWD/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27-alpine nginx -t
 
       - name: Every pinned image exists
         run: |
           for image in $(SECRET_KEY=x MOCLO_SECRET_KEY=x docker compose --profile restore config --images | sort -u); do
-            case "$image" in *lab-suite-backup*) continue ;; esac   # published by this repo's release
+            case "$image" in *lab-suite-*) continue ;; esac   # published by this repo's release
             docker manifest inspect "$image" > /dev/null && echo "ok  $image" || { echo "MISSING $image"; exit 1; }
           done

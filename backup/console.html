@@ -86,9 +86,15 @@
   .kinds { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: .85rem; }
   .kinds label { display: flex; gap: .4rem; align-items: center; font-weight: 500; cursor: pointer; }
   .kinds input { width: auto; }
+  body.embedded header { display: none; }
+  body.embedded #main { padding-top: 1.5rem; }
 </style>
 </head>
 <body>
+<script>
+  // In the Backups tab of the suite's dashboard, which has its own header.
+  if (new URLSearchParams(location.search).get('embed') === '1') document.body.classList.add('embedded');
+</script>
 <header>
   <div class="wrap">
     <a class="brand" href="/">&#128190; Backups</a>
@@ -128,8 +134,9 @@ function notice(kind, html) {
 }
 
 /* --- login ---------------------------------------------------------------- */
-function renderLogin(message) {
+function renderLogin(message, session) {
   $('#who').innerHTML = '';
+  if (session && session.login_url) { renderSuiteLogin(session); return; }
   $('#main').innerHTML = `
     <div class="login card">
       <h2>Backup console</h2>
@@ -149,6 +156,24 @@ function renderLogin(message) {
       start();
     } catch (err) { renderLogin(err.message); }
   });
+}
+
+/* Inside the suite, people sign in on the suite's page, not here. */
+function renderSuiteLogin(session) {
+  const back = encodeURIComponent(location.pathname);
+  const login = `${session.login_url}?next=${back}`;
+  $('#main').innerHTML = session.signed_in_as ? `
+    <div class="login card">
+      <h2>Backup console</h2>
+      <p class="hint">You are signed in as <b>${esc(session.signed_in_as)}</b>, which is not an
+        administrator account. Only administrators can use this console.</p>
+      <a class="btn" style="width:100%;text-decoration:none" href="${esc(session.logout_url)}">Sign in as someone else</a>
+    </div>` : `
+    <div class="login card">
+      <h2>Backup console</h2>
+      <p class="hint">Sign in to the lab tools with an <b>administrator</b> account.</p>
+      <a class="btn" style="width:100%;text-decoration:none" href="${esc(login)}">Sign in</a>
+    </div>`;
 }
 
 /* --- main console --------------------------------------------------------- */
@@ -288,7 +313,11 @@ function renderConsole() {
       </p>
     </div>`;
 
-  $('#logout').addEventListener('click', async () => { await api('POST', 'api/logout'); renderLogin(); });
+  $('#logout').addEventListener('click', async () => {
+    if (STATE.logoutUrl) { location.href = STATE.logoutUrl; return; }
+    await api('POST', 'api/logout');
+    renderLogin();
+  });
   $('#browseDest').addEventListener('click', () => openBrowser($('#dest').value));
   $('#useDest').addEventListener('click', prepareDestination);
   $('#testShare').addEventListener('click', testShare);
@@ -596,6 +625,7 @@ async function refresh(keepNotice) {
   const [status, archives] = await Promise.all([api('GET', 'api/status'), api('GET', 'api/archives')]);
   const session = await api('GET', 'api/session');
   STATE.status = { ...status, username: session.username };
+  STATE.logoutUrl = session.logout_url || '';
   STATE.archives = archives.archives;
   const held = keepNotice ? $('#notice')?.innerHTML : '';
   const out = keepNotice ? $('#runOut')?.innerHTML : '';
@@ -607,7 +637,7 @@ async function refresh(keepNotice) {
 async function start() {
   try {
     const session = await api('GET', 'api/session');
-    if (!session.authenticated) { renderLogin(); return; }
+    if (!session.authenticated) { renderLogin('', session); return; }
     await refresh();
   } catch (err) { renderLogin(err.message); }
 }

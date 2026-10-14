@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard · Gardiner Lab Tools</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#129516;</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="dashboard">
+<header class="topbar">
+  <div class="wrap">
+    <a class="home" href="/">&larr; Gardiner Lab Tools</a>
+    <div class="who"><span id="who"></span><a href="logout">Sign out</a></div>
+  </div>
+</header>
+
+<nav class="tabbar" aria-label="Dashboard">
+  <div class="wrap" id="tabs" role="tablist"></div>
+</nav>
+
+<main class="wrap" id="panels"></main>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/*
+ * The suite's one dashboard: everything you can see or change about your
+ * account, the labs and the tools, in tabs.
+ *
+ * Some tabs are the suite's own (your account, labs, accounts). The rest come
+ * from the tools: each tool lists its tabs in a suite-manifest.json, named by
+ * its entry in /tools.json, and a tab shows that tool's own page for it with
+ * the tool's navigation left out. Adding a tool with a manifest adds its tabs
+ * here; nothing in this page changes.
+ *
+ *   { "tabs": [ { "id": "moclo-parts", "title": "My parts", "icon": "🧩",
+ *                 "section": "me" | "admin", "roles": ["admin"],
+ *                 "src": "/dashboard?embed=1&tab=parts" } ] }
+ *
+ * "roles" limits who sees the tab (admin, lab_lead, member; absent means
+ * everyone). Hiding a tab is tidiness, not security: every tool still checks.
+ */
+const ROLE_NAMES = { admin: 'Administrator', lab_lead: 'Lab lead', member: 'Member' };
+const $ = (id) => document.getElementById(id);
+let me = null;
+let tabs = [];
+let toastTimer = null;
+
+/** A small element builder: el('td', { class: 'num' }, 'text', child, ...). */
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (value === false || value == null) continue;
+    if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+    else if (key === 'class') node.className = value;
+    else if (value === true) node.setAttribute(key, '');
+    else node.setAttribute(key, value);
+  }
+  for (const child of children.flat()) if (child != null) node.append(child);
+  return node;
+}
+
+function toast(message, kind = 'good') {
+  $('toast').replaceChildren(el('div', { class: `alert ${kind}` }, message));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('toast').replaceChildren(), kind === 'bad' ? 6000 : 3000);
+}
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    cache: 'no-store',
+    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (res.status === 401) {
+    location.href = `login?next=${encodeURIComponent(location.pathname + location.hash)}`;
+    throw new Error('Signed out');
+  }
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+  return json;
+}
+
+/** Do something, say how it went, and redraw the tab. */
+async function act(promise, done, tab) {
+  try {
+    await promise;
+    if (done) toast(done);
+  } catch (err) {
+    toast(err.message, 'bad');
+  }
+  if (tab) await tab.show(tab.panel);
+}
+
+/* --- tabs ---------------------------------------------------------------- */
+
+function allowed(roles) {
+  return !roles || !roles.length || me.role === 'admin' || roles.includes(me.role);
+}
+
+/** The tabs each tool offers, from the manifests named in /tools.json. */
+async function toolTabs() {
+  let registry;
+  try {
+    registry = await (await fetch('/tools.json', { cache: 'no-store' })).json();
+  } catch {
+    return [];
+  }
+  const entries = [...(registry.tools || []), ...(registry.admin || [])].filter((t) => t.manifest);
+  const lists = await Promise.all(entries.map(async (tool) => {
+    try {
+      const res = await fetch(tool.manifest, { cache: 'no-store' });
+      if (!res.ok) return [];
+      const manifest = await res.json();
+      return (manifest.tabs || []).map((tab) => ({ ...tab, tool: tool.name }));
+    } catch {
+      return [];       // a tool that is down just has no tabs for now
+    }
+  }));
+  return lists.flat().filter((t) => t.id && t.title && t.src && allowed(t.roles)
+    && (t.src.startsWith('/') && !t.src.startsWith('//')));
+}
+
+function frameTab(spec) {
+  return {
+    ...spec,
+    show(panel) {
+      if (panel.firstChild) return;      // keep what was loaded, and where it was
+      panel.append(el('iframe', { src: spec.src, title: spec.title, class: 'tool-frame' }));
+    },
+  };
+}
+
+function select(id) {
+  const tab = tabs.find((t) => t.id === id) || tabs[0];
+  for (const t of tabs) {
+    const on = t === tab;
+    t.button.setAttribute('aria-selected', on ? 'true' : 'false');
+    t.button.tabIndex = on ? 0 : -1;
+    t.panel.hidden = !on;
+  }
+  document.body.classList.toggle('framed', Boolean(tab.src));
+  if (location.hash !== `#${tab.id}`) history.replaceState(null, '', `#${tab.id}`);
+  tab.show(tab.panel);
+}
+
+function buildTabs() {
+  const groups = { me: 'You', admin: 'Administration' };
+  const bar = $('tabs');
+  bar.replaceChildren();
+  $('panels').replaceChildren();
+  for (const [section, label] of Object.entries(groups)) {
+    const inSection = tabs.filter((t) => t.section === section);
+    if (!inSection.length) continue;
+    bar.append(el('span', { class: 'tab-group' }, label));
+    for (const tab of inSection) {
+      tab.button = el('button', { class: 'tab', role: 'tab', type: 'button', id: `tab-${tab.id}`,
+                                  'aria-controls': `panel-${tab.id}`,
+                                  onclick: () => select(tab.id) },
+        tab.icon ? el('span', { 'aria-hidden': 'true' }, tab.icon) : null, tab.title);
+      tab.panel = el('section', { class: tab.src ? 'panel framed' : 'panel', role: 'tabpanel',
+                                  id: `panel-${tab.id}`, 'aria-labelledby': `tab-${tab.id}`, hidden: true });
+      bar.append(tab.button);
+      $('panels').append(tab.panel);
+    }
+  }
+}
+
+window.addEventListener('hashchange', () => select(location.hash.slice(1)));
+
+/* --- My account ------------------------------------------------------------ */
+
+const accountTab = {
+  id: 'account', title: 'My account', icon: '👤', section: 'me',
+  show(panel) {
+    const form = el('form', { class: 'narrow' },
+      el('div', { class: 'field' }, el('label', { for: 'pwCurrent' }, 'Current password'),
+        el('input', { id: 'pwCurrent', type: 'password', autocomplete: 'current-password', required: true })),
+      el('div', { class: 'field' }, el('label', { for: 'pwNew' }, 'New password'),
+        el('input', { id: 'pwNew', type: 'password', autocomplete: 'new-password', required: true, minlength: 8 }),
+        el('span', { class: 'hint' }, 'At least 8 characters. It works in every tool at once.')),
+      el('div', { class: 'field' }, el('label', { for: 'pwAgain' }, 'New password again'),
+        el('input', { id: 'pwAgain', type: 'password', autocomplete: 'new-password', required: true })),
+      el('button', { class: 'btn', type: 'submit' }, 'Change password'));
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if ($('pwNew').value !== $('pwAgain').value) { toast('The new passwords do not match', 'bad'); return; }
+      try {
+        await api('POST', 'api/account/password', { current: $('pwCurrent').value, new: $('pwNew').value });
+        form.reset();
+        toast('Password changed. You are signed out everywhere else.');
+      } catch (err) { toast(err.message, 'bad'); }
+    });
+    panel.replaceChildren(el('div', { class: 'card' },
+      el('h2', {}, 'My account'),
+      el('dl', { class: 'facts' },
+        el('dt', {}, 'Username'), el('dd', {}, me.username),
+        el('dt', {}, 'Lab'), el('dd', {}, me.lab || 'None yet: ask an administrator'),
+        el('dt', {}, 'Role'), el('dd', {}, ROLE_NAMES[me.role])),
+      el('h3', {}, 'Change your password'), form));
+  },
+};
+
+/* --- Labs ------------------------------------------------------------------ */
+
+const labsTab = {
+  id: 'labs', title: 'Labs', icon: '🏷️', section: 'admin', roles: ['admin', 'lab_lead'],
+  async show(panel) {
+    let data;
+    try { data = await api('GET', 'api/admin/overview'); } catch (err) {
+      panel.replaceChildren(el('div', { class: 'alert bad' }, err.message));
+      return;
+    }
+    const admin = data.can_manage;
+    const rows = data.labs.length ? data.labs.map((lab) => labRow(lab, admin, this))
+      : [el('tr', {}, el('td', { colspan: 4, class: 'hint' },
+          admin ? 'No labs yet. Add one below.' : 'You are not in a lab yet.'))];
+    const add = el('form', { class: 'add-row' },
+      el('input', { id: 'newLab', maxlength: 100, placeholder: 'New lab, e.g. Smith Lab', 'aria-label': 'New lab name' }),
+      el('button', { class: 'btn', type: 'submit' }, 'Add lab'));
+    add.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = $('newLab').value.trim();
+      if (!name) { toast('Give the lab a name', 'bad'); return; }
+      act(api('POST', 'api/admin/labs', { name }), `Added ${name}, with a registration code of its own.`, this);
+    });
+    panel.replaceChildren(
+      data.codes_required ? '' : el('div', { class: 'alert warn' },
+        'This server lets anyone register without a code (REQUIRE_REGISTRATION_CODE=false).'),
+      el('div', { class: 'card' },
+        el('h2', {}, admin ? 'Labs and registration codes' : 'Your lab'),
+        el('p', { class: 'hint' }, admin
+          ? 'Someone joining chooses their lab and gives that lab\'s code at /account/register; every lab has '
+            + 'its own, and it works for every tool. A new code retires the old one at once; existing accounts '
+            + 'are not affected. A closed lab takes nobody new.'
+          : 'Give new members of your lab this code so they can register at /account/register. Only an '
+            + 'administrator can change it.'),
+        el('div', { class: 'table-scroll' }, el('table', {},
+          el('thead', {}, el('tr', {}, el('th', {}, 'Lab'), el('th', { class: 'num' }, 'Members'),
+            el('th', {}, 'Registration code'), el('th', {}))),
+          el('tbody', {}, rows))),
+        admin ? add : null),
+      admin ? '' : el('div', { class: 'card' },
+        el('h2', {}, 'Your lab\'s members'),
+        el('p', { class: 'hint' }, 'As lab lead you can open and change your lab members\' plasmids, as an administrator can.'),
+        el('div', { class: 'table-scroll' }, el('table', {},
+          el('thead', {}, el('tr', {}, el('th', {}, 'Username'), el('th', {}, 'Role'), el('th', {}, 'Joined'))),
+          el('tbody', {}, data.users.map((u) => el('tr', {}, el('td', {}, u.username),
+            el('td', {}, ROLE_NAMES[u.role]), el('td', {}, (u.created_at || '').slice(0, 10)))))))));
+  },
+};
+
+function codeCell(lab) {
+  if (!lab.code) return el('td', {}, '—', el('span', { class: 'sub' }, 'Closed: takes nobody new'));
+  const when = (lab.code_updated_at || '').slice(0, 10);
+  return el('td', {}, el('code', { class: 'code' }, lab.code),
+    el('span', { class: 'sub' }, lab.code_updated_by ? `By ${lab.code_updated_by}${when ? `, ${when}` : ''}` : ''));
+}
+
+function labRow(lab, admin, tab) {
+  const copy = lab.code
+    ? el('button', { class: 'btn small secondary', type: 'button', onclick: () => copyText(lab.code) }, 'Copy')
+    : null;
+  if (!admin) {
+    return el('tr', {}, el('td', {}, lab.name), el('td', { class: 'num' }, String(lab.members)),
+      codeCell(lab), el('td', { class: 'actions' }, copy));
+  }
+  const name = el('td', {}, el('strong', {}, lab.name), ' ',
+    el('button', { class: 'btn small secondary', type: 'button', onclick: () => renameLab(lab, name, tab) }, 'Rename'));
+  return el('tr', {}, name, el('td', { class: 'num' }, String(lab.members)), codeCell(lab),
+    el('td', { class: 'actions' }, copy,
+      el('button', { class: 'btn small', type: 'button',
+                     onclick: () => act(api('POST', `api/admin/labs/${lab.id}/code`),
+                       `New code for ${lab.name}. The old one no longer works.`, tab) },
+        lab.code ? 'New code' : 'Open with a code'),
+      el('button', { class: 'btn small secondary', type: 'button', disabled: !lab.code,
+                     title: 'Remove the code, so nobody new can join this lab',
+                     onclick: () => act(api('DELETE', `api/admin/labs/${lab.id}/code`),
+                       `${lab.name} is closed to new members.`, tab) }, 'Close'),
+      el('button', { class: 'btn small secondary', type: 'button', disabled: lab.members > 0,
+                     title: lab.members ? 'Only a lab without members can be removed' : 'Remove this lab',
+                     'aria-label': `Remove ${lab.name}`,
+                     onclick: () => act(api('DELETE', `api/admin/labs/${lab.id}`), `Removed ${lab.name}.`, tab) }, '✕')));
+}
+
+/** Rename in place: the name becomes a field with Save and Cancel. */
+function renameLab(lab, cell, tab) {
+  const input = el('input', { value: lab.name, maxlength: 100, 'aria-label': 'New lab name' });
+  const save = () => act(api('PATCH', `api/admin/labs/${lab.id}`, { name: input.value }), 'Renamed.', tab);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') save();
+    if (e.key === 'Escape') tab.show(tab.panel);
+  });
+  cell.replaceChildren(input, ' ',
+    el('button', { class: 'btn small', type: 'button', onclick: save }, 'Save'), ' ',
+    el('button', { class: 'btn small secondary', type: 'button', onclick: () => tab.show(tab.panel) }, 'Cancel'));
+  input.focus();
+  input.select();
+}
+
+/* --- Accounts ---------------------------------------------------------------- */
+
+const usersTab = {
+  id: 'users', title: 'Accounts', icon: '👥', section: 'admin', roles: ['admin'],
+  async show(panel) {
+    let data;
+    try { data = await api('GET', 'api/admin/overview'); } catch (err) {
+      panel.replaceChildren(el('div', { class: 'alert bad' }, err.message));
+      return;
+    }
+    const labOptions = (selected, blank) => [
+      blank ? el('option', { value: '' }, blank) : null,
+      ...data.labs.map((l) => el('option', { value: l.id, selected: l.id === selected }, l.name))];
+    const roleOptions = (selected) => data.roles.map((r) =>
+      el('option', { value: r, selected: r === selected }, ROLE_NAMES[r]));
+
+    const add = el('form', { class: 'add-grid' },
+      el('div', { class: 'field' }, el('label', { for: 'newUser' }, 'Username'),
+        el('input', { id: 'newUser', required: true, minlength: 3, maxlength: 32, autocomplete: 'off' })),
+      el('div', { class: 'field' }, el('label', { for: 'newPassword' }, 'Password'),
+        el('input', { id: 'newPassword', type: 'text', required: true, minlength: 8, autocomplete: 'off',
+                      spellcheck: 'false' })),
+      el('div', { class: 'field' }, el('label', { for: 'newUserLab' }, 'Lab'),
+        el('select', { id: 'newUserLab' }, labOptions('', 'No lab'))),
+      el('div', { class: 'field' }, el('label', { for: 'newUserRole' }, 'Role'),
+        el('select', { id: 'newUserRole' }, roleOptions('member'))),
+      el('div', { class: 'field' }, el('span', { class: 'label-gap', 'aria-hidden': 'true' }, ' '),
+        el('button', { class: 'btn', type: 'submit' }, 'Add account')));
+    add.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const username = $('newUser').value.trim();
+      act(api('POST', 'api/admin/users', { username, password: $('newPassword').value,
+                                          lab_id: $('newUserLab').value, role: $('newUserRole').value }),
+          `Added ${username}. Give them their password; they can change it under My account.`, this);
+    });
+
+    panel.replaceChildren(el('div', { class: 'card' },
+      el('h2', {}, 'Accounts'),
+      el('p', { class: 'hint' }, 'One account per person, for every tool. Lab leads can act as administrators for '
+        + 'their own lab\'s members and plasmids, and see their lab\'s code, but cannot change codes or roles.'),
+      el('div', { class: 'table-scroll' }, el('table', {},
+        el('thead', {}, el('tr', {}, el('th', {}, 'Username'), el('th', {}, 'Lab'), el('th', {}, 'Role'),
+          el('th', {}, 'Joined'), el('th', {}))),
+        el('tbody', {}, data.users.map((u) => userRow(u, data, labOptions, roleOptions, this))))),
+      el('h3', {}, 'Add an account'),
+      el('p', { class: 'hint' }, 'For someone who cannot register themselves. Anyone with their lab\'s code can '
+        + 'also register at /account/register.'),
+      add));
+  },
+};
+
+function userRow(u, data, labOptions, roleOptions, tab) {
+  const name = encodeURIComponent(u.username);
+  const self = u.username === data.me.username;
+  const lab = el('select', { 'aria-label': `Lab of ${u.username}`,
+                             onchange: (e) => e.target.value && act(
+                               api('PUT', `api/admin/users/${name}/lab`, { lab_id: e.target.value }),
+                               `Moved ${u.username}.`, tab) },
+    labOptions(u.lab_id, u.lab_id ? null : 'No lab'));
+  const role = el('select', { 'aria-label': `Role of ${u.username}`, disabled: self,
+                              title: self ? 'You cannot change your own role' : null,
+                              onchange: (e) => act(api('PUT', `api/admin/users/${name}/role`, { role: e.target.value }),
+                                `${u.username} is now ${ROLE_NAMES[e.target.value].toLowerCase()}.`, tab) },
+    roleOptions(u.role));
+  const actions = el('td', { class: 'actions' });
+  const reset = () => actions.replaceChildren(
+    el('button', { class: 'btn small secondary', type: 'button', disabled: self,
+                   title: self ? 'Change your own under My account' : null, onclick: setPassword }, 'Set password'),
+    el('button', { class: 'btn small secondary', type: 'button', disabled: self,
+                   title: self ? 'You cannot remove your own account' : null, onclick: remove }, 'Remove'));
+  function setPassword() {
+    const input = el('input', { type: 'text', minlength: 8, placeholder: 'New password', spellcheck: 'false',
+                                autocomplete: 'off', 'aria-label': `New password for ${u.username}` });
+    const save = () => act(api('PUT', `api/admin/users/${name}/password`, { password: input.value }),
+      `New password set for ${u.username}. They are signed out until they use it.`, tab);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') reset(); });
+    actions.replaceChildren(input, el('button', { class: 'btn small', type: 'button', onclick: save }, 'Save'),
+      el('button', { class: 'btn small secondary', type: 'button', onclick: reset }, 'Cancel'));
+    input.focus();
+  }
+  function remove() {
+    actions.replaceChildren(el('span', { class: 'sub inline' }, `Remove ${u.username} from every tool?`),
+      el('button', { class: 'btn small danger', type: 'button',
+                     onclick: () => act(api('DELETE', `api/admin/users/${name}`), `Removed ${u.username}.`, tab) },
+        'Remove'),
+      el('button', { class: 'btn small secondary', type: 'button', onclick: reset }, 'Keep'));
+  }
+  reset();
+  return el('tr', {}, el('td', {}, u.username), el('td', {}, lab), el('td', {}, role),
+    el('td', {}, (u.created_at || '').slice(0, 10)), actions);
+}
+
+async function copyText(code) {
+  try {
+    await navigator.clipboard.writeText(code);
+    toast('Code copied.');
+  } catch {
+    toast(`The code is ${code}`, 'warn');
+  }
+}
+
+/* --- start --------------------------------------------------------------------- */
+
+(async () => {
+  try {
+    const session = await api('GET', 'api/session');
+    if (!session.authenticated) { location.href = 'login?next=/account/'; return; }
+    me = session.user;
+  } catch {
+    return;
+  }
+  $('who').textContent = `${me.username} · ${ROLE_NAMES[me.role]}`;
+  const own = [accountTab, labsTab, usersTab].filter((t) => allowed(t.roles));
+  const fromTools = (await toolTabs()).map(frameTab);
+  // Your own things first, then administration; the suite's tabs lead each.
+  tabs = [...own, ...fromTools].sort((a, b) =>
+    (a.section === 'me' ? 0 : 1) - (b.section === 'me' ? 0 : 1));
+  buildTabs();
+  select(location.hash.slice(1));
+})();
+</script>
+</body>
+</html>

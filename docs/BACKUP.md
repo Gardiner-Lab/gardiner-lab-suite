@@ -4,7 +4,7 @@ The stack backs itself up to a network drive every night. This document covers
 setting that up, checking it is working, and restoring.
 
 Most of it is done from the **backup console** on the landing page, at
-`/backup/`. Sign in with a Plasmid Editor administrator account.
+`/backup/`. Only administrators get in.
 
 There you can set where backups are kept, run one now, see what is held,
 download an archive, upload one from another machine, and restore. The
@@ -23,6 +23,7 @@ make restore         # put the latest backup back
 | `moclo.db` — MoClo plasmids, cassettes, backbones, users | SQLite online backup |
 | `parts.db` — the shared MoClo parts library | SQLite online backup |
 | `plasmid_editor.db` — sequences, sequencing reads, verifications | SQLite online backup |
+| `suite.db` — labs, their registration codes, who is in which lab | SQLite online backup |
 | Anything else in either volume | tar |
 | The stack's configuration (compose, nginx, landing page) | tar, **secrets excluded** |
 

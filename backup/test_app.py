@@ -125,3 +125,62 @@ def test_the_moclo_default_password_never_opens_the_console(console):
     r = module.app.test_client().post('/api/login', json={'username': 'admin', 'password': 'admin123'})
     assert r.status_code == 403
     assert 'default password' in r.get_json()['error']
+
+
+# ---------------------------------------------------------------------------
+# Inside the suite: the proxy says who is signed in
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def suite_console(tmp_path, monkeypatch):
+    import sqlite3
+    directory = tmp_path / 'moclo.db'
+    conn = sqlite3.connect(directory)
+    conn.execute('CREATE TABLE users (username TEXT, password_hash TEXT, is_admin INTEGER)')
+    conn.executemany('INSERT INTO users VALUES (?, ?, ?)', [('boss', 'x', 1), ('alice', 'x', 0)])
+    conn.commit()
+    conn.close()
+    allowed = tmp_path / 'mnt'
+    allowed.mkdir()
+    monkeypatch.setenv('ALLOWED_BACKUP_ROOTS', str(allowed))
+    monkeypatch.setenv('CONFIG_STORE', str(tmp_path / 'config'))
+    monkeypatch.setenv('BACKUP_DEST', str(allowed))
+    monkeypatch.setenv('MOCLO_DB', str(directory))
+    monkeypatch.setenv('EDITOR_DB', str(tmp_path / 'missing.db'))
+    monkeypatch.setenv('SUITE_AUTH', 'proxy')
+    module = importlib.reload(importlib.import_module('app'))
+    module.app.config.update(TESTING=True, SECRET_KEY='test')
+    return module.app.test_client()
+
+
+def test_a_suite_administrator_is_let_in(suite_console):
+    r = suite_console.get('/api/session', headers={'X-Suite-User': 'boss'})
+    assert r.get_json()['authenticated'] is True
+    assert suite_console.get('/api/archives', headers={'X-Suite-User': 'boss'}).status_code == 200
+
+
+def test_a_suite_member_is_not(suite_console):
+    session = suite_console.get('/api/session', headers={'X-Suite-User': 'alice'}).get_json()
+    assert session['authenticated'] is False
+    assert session['signed_in_as'] == 'alice'
+    assert suite_console.get('/api/archives', headers={'X-Suite-User': 'alice'}).status_code == 401
+
+
+def test_signing_out_of_the_suite_signs_out_here(suite_console):
+    suite_console.get('/api/session', headers={'X-Suite-User': 'boss'})
+    assert suite_console.get('/api/archives').status_code == 401
+
+
+def test_the_console_has_no_sign_in_of_its_own_in_the_suite(suite_console):
+    r = suite_console.post('/api/login', json={'username': 'boss', 'password': 'x'})
+    assert r.status_code == 403
+    assert r.get_json()['login_url'] == '/account/login'
+
+
+def test_in_the_suite_the_console_is_a_dashboard_tab(suite_console):
+    r = suite_console.get('/', headers={'X-Suite-User': 'boss'})
+    assert r.status_code == 302 and r.headers['Location'] == '/account/#backups'
+    assert suite_console.get('/?embed=1', headers={'X-Suite-User': 'boss'}).status_code == 200
+    tabs = suite_console.get('/suite-manifest.json').get_json()['tabs']
+    assert tabs == [{'id': 'backups', 'title': 'Backups', 'icon': '💾', 'section': 'admin',
+                     'roles': ['admin'], 'src': '/backup/?embed=1'}]

@@ -1,0 +1,497 @@
+"""
+Tests for the suite's sign-in, registration and labs service.
+
+    python -m pytest portal/
+"""
+
+import importlib
+import sqlite3
+import sys
+from pathlib import Path
+
+import bcrypt
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+
+def make_directory(path: Path, users):
+    conn = sqlite3.connect(path)
+    conn.execute('CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT, '
+                 'is_admin INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
+    for username, password, is_admin in users:
+        conn.execute('INSERT INTO users (id, username, password_hash, is_admin) VALUES (?, ?, ?, ?)',
+                     (username, username,
+                      bcrypt.hashpw(password.encode(), bcrypt.gensalt(4)).decode(), int(is_admin)))
+    conn.commit()
+    conn.close()
+
+
+def make_editor_db(path: Path):
+    """An editor database from before the suite owned labs: labs, codes, members, a lead."""
+    conn = sqlite3.connect(path)
+    conn.executescript("""
+        CREATE TABLE users (id TEXT, username TEXT, password_hash TEXT, lab_source TEXT,
+                            is_admin INTEGER, created_at TEXT, role TEXT);
+        CREATE TABLE labs (id TEXT PRIMARY KEY, name TEXT, registration_code TEXT,
+                           code_updated_by TEXT, code_updated_at TEXT, created_at TEXT);
+        INSERT INTO labs VALUES ('lab-g', 'Gardiner Lab', 'old-code-12', 'boss', '2026-10-01', '2026-09-01');
+        INSERT INTO labs VALUES ('lab-s', 'Smith Lab', NULL, NULL, NULL, '2026-09-02');
+        INSERT INTO users VALUES ('1', 'alice', 'x', 'Gardiner Lab', 0, NULL, 'lab_lead');
+        INSERT INTO users VALUES ('2', 'bob', 'x', 'smith lab', 0, NULL, NULL);
+        INSERT INTO users VALUES ('3', 'carol', 'x', NULL, 0, NULL, NULL);
+    """)
+    conn.commit()
+    conn.close()
+
+
+def load(monkeypatch, moclo, editor, suite, **env):
+    monkeypatch.setenv('MOCLO_DB', str(moclo))
+    monkeypatch.setenv('EDITOR_DB', str(editor))
+    monkeypatch.setenv('SUITE_DB', str(suite))
+    monkeypatch.setenv('SECRET_KEY', 'test')
+    for key in ('DEFAULT_LAB_SOURCE', 'REQUIRE_REGISTRATION_CODE', 'ALLOW_REGISTRATION'):
+        monkeypatch.delenv(key, raising=False)
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    module = importlib.reload(importlib.import_module('portal'))
+    monkeypatch.setattr(module.time, 'sleep', lambda _: None)
+    return module
+
+
+@pytest.fixture()
+def portal(tmp_path, monkeypatch):
+    moclo = tmp_path / 'moclo.db'
+    make_directory(moclo, [('alice', 'alice-password', False), ('boss', 'boss-password', True),
+                           ('admin', 'admin123', True)])
+    module = load(monkeypatch, moclo, tmp_path / 'missing.db', tmp_path / 'suite.db',
+                  DEFAULT_LAB_SOURCE='Gardiner Lab')
+    return module, module.app.test_client(), moclo
+
+
+def sign_in(client, username, password, **extra):
+    return client.post('/api/login', json={'username': username, 'password': password, **extra})
+
+
+def gardiner(module):
+    return module.labs.by_name('Gardiner Lab')
+
+
+# ---------------------------------------------------------------------------
+# Signing in
+# ---------------------------------------------------------------------------
+
+def check(client, path='/parts'):
+    """The proxy's question about one request."""
+    return client.get('/api/check', headers={'X-Original-URI': path})
+
+
+@pytest.mark.parametrize('path', ['/', '/tools.json', '/parts', '/admin?embed=1', '/editor/',
+                                  '/editor/api/sequences', '/backup/', '/api/admin/parts',
+                                  '/health/../parts', '/healthy', ''])
+def test_nothing_is_visible_before_signing_in(portal, path):
+    _, client, _ = portal
+    assert check(client, path).status_code == 401
+
+
+@pytest.mark.parametrize('path', ['/health', '/editor/health', '/backup/health', '/health?x=1'])
+def test_health_checks_stay_public(portal, path):
+    _, client, _ = portal
+    r = check(client, path)
+    assert r.status_code == 200
+    assert 'X-Suite-User' not in r.headers
+
+
+def test_a_refused_page_visit_goes_to_sign_in_and_back(portal):
+    _, client, _ = portal
+    r = client.get('/api/signin', headers={'X-Original-URI': '/admin?embed=1&tab=parts',
+                                            'Accept': 'text/html,application/xhtml+xml'})
+    assert r.status_code == 302
+    assert r.headers['Location'] == '/account/login?next=/admin%3Fembed%3D1%26tab%3Dparts'
+
+
+def test_a_refused_api_call_gets_a_401(portal):
+    _, client, _ = portal
+    r = client.get('/api/signin', headers={'X-Original-URI': '/api/parts', 'Accept': '*/*'})
+    assert r.status_code == 401
+    assert r.get_json()['login_url'].startswith('/account/login?next=')
+    r = client.post('/api/signin', headers={'X-Original-URI': '/parts', 'Accept': 'text/html'})
+    assert r.status_code == 401
+
+
+def test_sign_in_never_sends_people_off_the_site(portal):
+    _, client, _ = portal
+    r = client.get('/api/signin', headers={'X-Original-URI': '//evil.example/', 'Accept': 'text/html'})
+    assert r.headers['Location'] == '/account/login?next=/'
+
+
+def test_signed_in_check_names_the_user(portal):
+    _, client, _ = portal
+    assert sign_in(client, 'alice', 'alice-password').status_code == 200
+    assert check(client).headers['X-Suite-User'] == 'alice'
+    assert client.get('/api/session').get_json()['user']['username'] == 'alice'
+
+
+def test_wrong_password_is_refused(portal):
+    _, client, _ = portal
+    assert sign_in(client, 'alice', 'nope').status_code == 401
+    assert sign_in(client, 'nobody', 'alice-password').status_code == 401
+    assert check(client).status_code == 401
+
+
+def test_the_published_default_password_never_signs_in(portal):
+    _, client, _ = portal
+    assert sign_in(client, 'admin', 'admin123').status_code == 403
+    assert check(client).status_code == 401
+
+
+def test_signing_out_ends_it_everywhere(portal):
+    _, client, _ = portal
+    sign_in(client, 'alice', 'alice-password')
+    assert client.post('/api/logout').status_code == 200
+    assert check(client).status_code == 401
+
+
+def test_get_logout_goes_back_to_the_sign_in_page(portal):
+    _, client, _ = portal
+    r = client.get('/logout')
+    assert r.status_code == 302
+    assert r.headers['Location'].endswith('/account/login')
+
+
+def test_a_password_change_ends_old_sessions(portal):
+    _, client, moclo = portal
+    sign_in(client, 'alice', 'alice-password')
+    conn = sqlite3.connect(moclo)
+    conn.execute("UPDATE users SET password_hash = ? WHERE username = 'alice'",
+                 (bcrypt.hashpw(b'a-new-password', bcrypt.gensalt(4)).decode(),))
+    conn.commit()
+    conn.close()
+    assert check(client).status_code == 401
+
+
+def test_a_deleted_account_is_signed_out(portal):
+    _, client, moclo = portal
+    sign_in(client, 'alice', 'alice-password')
+    conn = sqlite3.connect(moclo)
+    conn.execute("DELETE FROM users WHERE username = 'alice'")
+    conn.commit()
+    conn.close()
+    assert check(client).status_code == 401
+
+
+def test_a_forged_cookie_is_ignored(portal):
+    _, client, _ = portal
+    client.set_cookie('lab_suite_session', 'eyJ1c2VybmFtZSI6ImJvc3MifQ.forged.sig')
+    assert check(client).status_code == 401
+
+
+def test_editor_accounts_are_the_fallback(tmp_path, monkeypatch):
+    editor = tmp_path / 'editor.db'
+    make_directory(editor, [('carol', 'carol-password', False)])
+    module = load(monkeypatch, tmp_path / 'missing.db', editor, tmp_path / 'suite.db')
+    client = module.app.test_client()
+    assert sign_in(client, 'carol', 'carol-password').status_code == 200
+    assert check(client).headers['X-Suite-User'] == 'carol'
+
+
+@pytest.mark.parametrize('target, expected', [
+    ('/parts', '/parts'),
+    ('/editor/library?x=1', '/editor/library?x=1'),
+    ('https://evil.example/', '/'),
+    ('//evil.example/', '/'),
+    ('/\\evil.example', '/'),
+    ('javascript:alert(1)', '/'),
+    ('', '/'),
+    # Signing in starts at the landing page, not the dashboard.
+    ('/account/', '/'),
+    ('/account/#users', '/'),
+    ('/account', '/'),
+    ('/account/login', '/'),
+    ('/accounting/report', '/accounting/report'),
+])
+def test_only_local_pages_are_returned_to(portal, target, expected):
+    _, client, _ = portal
+    assert sign_in(client, 'alice', 'alice-password', next=target).get_json()['next'] == expected
+
+
+def test_signed_in_visitors_skip_the_sign_in_page(portal):
+    _, client, _ = portal
+    sign_in(client, 'alice', 'alice-password')
+    r = client.get('/login?next=/parts')
+    assert r.status_code == 302
+    assert r.headers['Location'].endswith('/parts')
+
+
+def test_login_needs_json(portal):
+    _, client, _ = portal
+    r = client.post('/api/login', data={'username': 'alice', 'password': 'alice-password'})
+    assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Registering
+# ---------------------------------------------------------------------------
+
+def register(client, lab, code, username='dave', password='dave-password', **extra):
+    return client.post('/api/register', json={'lab': lab, 'code': code, 'username': username,
+                                              'password': password, **extra})
+
+
+def test_the_default_lab_gets_a_generated_code(portal):
+    module, _, _ = portal
+    lab = gardiner(module)
+    assert lab['registration_code']
+    assert len(lab['registration_code'].split('-')) == 4
+
+
+def test_registering_with_the_labs_code(portal):
+    module, client, moclo = portal
+    lab = gardiner(module)
+    r = register(client, lab['id'], lab['registration_code'].upper() + '  ', next='/parts')
+    assert r.status_code == 201, r.get_json()
+    assert r.get_json()['next'] == '/parts'
+    # In the directory, so every tool knows it, and signed in at once.
+    row = sqlite3.connect(moclo).execute("SELECT is_admin FROM users WHERE username = 'dave'").fetchone()
+    assert row == (0,)
+    assert check(client).headers['X-Suite-User'] == 'dave'
+    assert module.labs.membership('dave')['lab'] == 'Gardiner Lab'
+
+
+def test_a_wrong_code_is_refused(portal):
+    module, client, moclo = portal
+    r = register(client, gardiner(module)['id'], 'not-the-code')
+    assert r.status_code == 403
+    assert sqlite3.connect(moclo).execute("SELECT 1 FROM users WHERE username = 'dave'").fetchone() is None
+
+
+def test_a_closed_lab_takes_nobody(portal):
+    module, client, _ = portal
+    lab = gardiner(module)
+    module.labs.close(lab['id'], 'boss')
+    assert register(client, lab['id'], lab['registration_code']).status_code == 403
+
+
+def test_one_labs_code_does_not_open_another(portal):
+    module, client, _ = portal
+    other = module.labs.create('Smith Lab', 'boss')
+    assert register(client, other['id'], gardiner(module)['registration_code']).status_code == 403
+
+
+def test_taken_usernames_and_weak_passwords_are_refused(portal):
+    module, client, _ = portal
+    lab = gardiner(module)
+    assert register(client, lab['id'], lab['registration_code'], username='alice').status_code == 400
+    assert register(client, lab['id'], lab['registration_code'], password='short').status_code == 400
+    assert register(client, lab['id'], lab['registration_code'], username='no spaces').status_code == 400
+
+
+def test_registration_can_be_closed(tmp_path, monkeypatch):
+    make_directory(tmp_path / 'moclo.db', [('boss', 'boss-password', True)])
+    module = load(monkeypatch, tmp_path / 'moclo.db', tmp_path / 'missing.db', tmp_path / 'suite.db',
+                  DEFAULT_LAB_SOURCE='Gardiner Lab', ALLOW_REGISTRATION='false')
+    lab = gardiner(module)
+    client = module.app.test_client()
+    assert register(client, lab['id'], lab['registration_code']).status_code == 403
+
+
+def test_the_first_account_needs_no_code_and_runs_the_place(tmp_path, monkeypatch):
+    make_directory(tmp_path / 'moclo.db', [])
+    module = load(monkeypatch, tmp_path / 'moclo.db', tmp_path / 'missing.db', tmp_path / 'suite.db')
+    client = module.app.test_client()
+    assert client.get('/api/labs').get_json()['code_required'] is False
+    r = register(client, 'Brand New Lab', '', username='founder')
+    assert r.status_code == 201, r.get_json()
+    assert module.directory.find('founder')['is_admin'] is True
+    # And from now on, codes are needed.
+    assert client.get('/api/labs').get_json()['code_required'] is True
+
+
+def test_the_registration_form_never_sees_codes(portal):
+    _, client, _ = portal
+    body = client.get('/api/labs').get_data(as_text=True)
+    assert 'Gardiner Lab' in body
+    assert 'registration_code' not in body and '"code"' not in body
+
+
+# ---------------------------------------------------------------------------
+# Labs, codes and roles
+# ---------------------------------------------------------------------------
+
+def test_only_administrators_and_lab_leads_see_the_labs(portal):
+    module, client, _ = portal
+    assert client.get('/api/admin/overview').status_code == 401
+    sign_in(client, 'alice', 'alice-password')
+    assert client.get('/api/admin/overview').status_code == 403
+
+
+def test_an_administrator_manages_labs_and_codes(portal):
+    module, client, _ = portal
+    sign_in(client, 'boss', 'boss-password')
+    lab = client.post('/api/admin/labs', json={'name': '  Smith   Lab '}).get_json()['lab']
+    assert lab['name'] == 'Smith Lab'
+    assert lab['code']                                    # generated straight away
+    old = lab['code']
+    lab = client.post(f'/api/admin/labs/{lab["id"]}/code').get_json()['lab']
+    assert lab['code'] and lab['code'] != old and lab['code_updated_by'] == 'boss'
+    lab = client.delete(f'/api/admin/labs/{lab["id"]}/code').get_json()['lab']
+    assert lab['code'] is None
+    assert client.patch(f'/api/admin/labs/{lab["id"]}', json={'name': 'Jones Lab'}).status_code == 200
+    assert client.post('/api/admin/labs', json={'name': 'jones lab'}).status_code == 400
+    assert client.delete(f'/api/admin/labs/{lab["id"]}').status_code == 200
+
+
+def test_a_lab_with_members_cannot_be_removed(portal):
+    module, client, _ = portal
+    lab = gardiner(module)
+    module.labs.set_lab('alice', lab['id'])
+    sign_in(client, 'boss', 'boss-password')
+    assert client.delete(f'/api/admin/labs/{lab["id"]}').status_code == 400
+
+
+def test_roles_and_labs_are_set_here(portal):
+    module, client, moclo = portal
+    lab = gardiner(module)
+    sign_in(client, 'boss', 'boss-password')
+    # A lab lead needs a lab first.
+    assert client.put('/api/admin/users/alice/role', json={'role': 'lab_lead'}).status_code == 400
+    assert client.put('/api/admin/users/alice/lab', json={'lab_id': lab['id']}).status_code == 200
+    assert client.put('/api/admin/users/alice/role', json={'role': 'lab_lead'}).status_code == 200
+    assert module.labs.membership('alice')['role'] == 'lab_lead'
+    # Administrator status goes to the directory, where every tool reads it.
+    assert client.put('/api/admin/users/alice/role', json={'role': 'admin'}).status_code == 200
+    assert module.directory.find('alice')['is_admin'] is True
+    assert module.labs.membership('alice')['role'] == 'member'
+    assert client.put('/api/admin/users/boss/role', json={'role': 'member'}).status_code == 400
+
+
+def test_a_lab_lead_sees_their_own_lab_read_only(portal):
+    module, client, _ = portal
+    lab = gardiner(module)
+    other = module.labs.create('Smith Lab', 'boss')
+    module.labs.set_lab('alice', lab['id'])
+    module.labs.set_lab_lead('alice', True)
+    sign_in(client, 'alice', 'alice-password')
+    body = client.get('/api/admin/overview').get_json()
+    assert body['can_manage'] is False
+    assert [l['name'] for l in body['labs']] == ['Gardiner Lab']
+    assert body['labs'][0]['code'] == lab['registration_code']
+    assert [u['username'] for u in body['users']] == ['alice']
+    assert client.post(f'/api/admin/labs/{lab["id"]}/code').status_code == 403
+    assert client.post('/api/admin/labs', json={'name': 'Mine'}).status_code == 403
+    assert client.put('/api/admin/users/boss/lab', json={'lab_id': other['id']}).status_code == 403
+
+
+def test_the_editors_labs_are_brought_over_once(tmp_path, monkeypatch):
+    make_directory(tmp_path / 'moclo.db', [('boss', 'boss-password', True)])
+    make_editor_db(tmp_path / 'editor.db')
+    module = load(monkeypatch, tmp_path / 'moclo.db', tmp_path / 'editor.db', tmp_path / 'suite.db',
+                  DEFAULT_LAB_SOURCE='Gardiner Lab')
+    labs = {lab['name']: lab for lab in module.labs.all_labs()}
+    assert set(labs) == {'Gardiner Lab', 'Smith Lab'}
+    # The code people were already given keeps working; a closed lab stays closed.
+    assert labs['Gardiner Lab']['registration_code'] == 'old-code-12'
+    assert labs['Smith Lab']['registration_code'] is None
+    assert module.labs.membership('alice') == {'username': 'alice', 'lab_id': 'lab-g',
+                                               'role': 'lab_lead', 'lab': 'Gardiner Lab'}
+    assert module.labs.membership('bob')['lab'] == 'Smith Lab'
+    assert module.labs.membership('carol')['lab'] is None
+
+    # A second start changes nothing, even after an administrator removed a lab.
+    module.labs.set_lab('bob', 'lab-g')
+    module.labs.delete('lab-s')
+    module = load(monkeypatch, tmp_path / 'moclo.db', tmp_path / 'editor.db', tmp_path / 'suite.db',
+                  DEFAULT_LAB_SOURCE='Gardiner Lab')
+    assert [lab['name'] for lab in module.labs.all_labs()] == ['Gardiner Lab']
+
+
+# ---------------------------------------------------------------------------
+# The dashboard: your account, and every account
+# ---------------------------------------------------------------------------
+
+def test_the_dashboard_needs_signing_in(portal):
+    _, client, _ = portal
+    r = client.get('/')
+    assert r.status_code == 302 and '/account/login' in r.headers['Location']
+    sign_in(client, 'alice', 'alice-password')
+    assert client.get('/').status_code == 200
+    assert client.get('/admin').headers['Location'].endswith('/account/#labs')
+
+
+def test_changing_your_own_password_keeps_you_signed_in(portal):
+    module, client, _ = portal
+    sign_in(client, 'alice', 'alice-password')
+    other = module.app.test_client()
+    sign_in(other, 'alice', 'alice-password')
+    assert client.post('/api/account/password',
+                       json={'current': 'wrong', 'new': 'brand-new-pw'}).status_code == 403
+    assert client.post('/api/account/password',
+                       json={'current': 'alice-password', 'new': 'short'}).status_code == 400
+    assert client.post('/api/account/password',
+                       json={'current': 'alice-password', 'new': 'brand-new-pw'}).status_code == 200
+    assert check(client).headers['X-Suite-User'] == 'alice'
+    assert check(other).status_code == 401      # the other session ended
+    assert sign_in(module.app.test_client(), 'alice', 'brand-new-pw').status_code == 200
+
+
+def test_an_administrator_adds_and_removes_accounts(portal):
+    module, client, moclo = portal
+    lab = gardiner(module)
+    sign_in(client, 'boss', 'boss-password')
+    r = client.post('/api/admin/users', json={'username': 'erin', 'password': 'erin-password',
+                                              'lab_id': lab['id'], 'role': 'lab_lead'})
+    assert r.status_code == 201, r.get_json()
+    assert module.labs.membership('erin')['role'] == 'lab_lead'
+    assert module.directory.find('erin')['is_admin'] is False
+    assert sign_in(module.app.test_client(), 'erin', 'erin-password').status_code == 200
+
+    r = client.post('/api/admin/users', json={'username': 'frank', 'password': 'frank-password',
+                                              'role': 'admin'})
+    assert r.status_code == 201
+    assert module.directory.find('frank')['is_admin'] is True
+    assert client.post('/api/admin/users', json={'username': 'erin', 'password': 'x' * 8}).status_code == 400
+    assert client.post('/api/admin/users', json={'username': 'gina', 'password': 'gina-password',
+                                                 'role': 'lab_lead'}).status_code == 400
+
+    assert client.delete('/api/admin/users/erin').status_code == 200
+    assert module.directory.find('erin') is None
+    assert module.labs.memberships().get('erin') is None
+    assert client.delete('/api/admin/users/boss').status_code == 400        # yourself
+    assert client.delete('/api/admin/users/nobody').status_code == 404
+
+
+def test_an_account_that_owns_records_is_kept(portal):
+    module, client, moclo = portal
+    conn = sqlite3.connect(moclo)
+    conn.execute('CREATE TABLE cassettes (id TEXT, owner_id TEXT REFERENCES users(id))')
+    conn.execute("INSERT INTO cassettes VALUES ('c1', 'alice')")
+    conn.commit()
+    conn.close()
+    sign_in(client, 'boss', 'boss-password')
+    r = client.delete('/api/admin/users/alice')
+    assert r.status_code == 400
+    assert 'owns' in r.get_json()['error']
+    assert module.directory.find('alice') is not None
+
+
+def test_an_administrator_sets_a_forgotten_password(portal):
+    module, client, _ = portal
+    alice = module.app.test_client()
+    sign_in(alice, 'alice', 'alice-password')
+    sign_in(client, 'boss', 'boss-password')
+    assert client.put('/api/admin/users/alice/password', json={'password': 'short'}).status_code == 400
+    assert client.put('/api/admin/users/alice/password', json={'password': 'reset-pw-123'}).status_code == 200
+    assert check(alice).status_code == 401
+    assert sign_in(module.app.test_client(), 'alice', 'reset-pw-123').status_code == 200
+    assert client.put('/api/admin/users/boss/password', json={'password': 'whatever-1'}).status_code == 400
+
+
+def test_only_administrators_manage_accounts(portal):
+    module, client, _ = portal
+    lab = gardiner(module)
+    module.labs.set_lab('alice', lab['id'])
+    module.labs.set_lab_lead('alice', True)
+    sign_in(client, 'alice', 'alice-password')
+    assert client.post('/api/admin/users', json={'username': 'x1x', 'password': 'x' * 8}).status_code == 403
+    assert client.delete('/api/admin/users/boss').status_code == 403
+    assert client.put('/api/admin/users/boss/password', json={'password': 'x' * 8}).status_code == 403

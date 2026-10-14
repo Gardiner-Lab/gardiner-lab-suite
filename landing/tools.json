@@ -18,7 +18,8 @@
         "CRISPR guide designer"
       ],
       "health": "/health",
-      "status": "live"
+      "status": "live",
+      "manifest": "/suite-manifest.json"
     },
     {
       "id": "editor",
@@ -38,13 +39,23 @@
   ],
   "admin": [
     {
+      "id": "dashboard",
+      "name": "Dashboard",
+      "icon": "🔑",
+      "colour": "#2563eb",
+      "href": "/account/#users",
+      "summary": "Accounts, labs and their registration codes, the MoClo library, and backups: every control for every tool, in one place.",
+      "health": "/account/health"
+    },
+    {
       "id": "backups",
       "name": "Backups",
       "icon": "💾",
       "colour": "#6b7280",
-      "href": "/backup/",
+      "href": "/account/#backups",
       "summary": "Choose where backups are kept, run one now, and restore — or move everything to another machine.",
-      "health": "/backup/health"
+      "health": "/backup/health",
+      "manifest": "/backup/suite-manifest.json"
     }
   ],
   "planned": [

@@ -1,14 +1,26 @@
-# Build images from source instead of pulling the published ones: the Plasmid
-# Editor from a working copy, and the backup service from ./backup. Used before
+# Build images from source instead of pulling the published ones: the MoClo
+# Library Tool and the Plasmid Editor from working copies, and the sign-in and
+# backup services from ./portal and ./backup. Used before
 # a release, for testing a change against the stack, and by install.sh while an
 # image has not been published yet.
 #
 #   SECRET_KEY=dev MOCLO_SECRET_KEY=dev \
 #     docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 #
-# EDITOR_SRC points at the editor checkout (default: a sibling directory).
+# MOCLO_SRC and EDITOR_SRC point at the checkouts (default: sibling directories).
 
 services:
+  portal:
+    build: ./portal
+    image: lab-suite-portal:local
+    pull_policy: never
+
+  moclo:
+    build:
+      context: ${MOCLO_SRC:-../moclo-library-tool}
+    image: moclo-library-tool:local
+    pull_policy: never
+
   editor:
     build:
       context: ${EDITOR_SRC:-../plasmid-editor}
