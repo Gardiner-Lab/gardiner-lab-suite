@@ -38,6 +38,8 @@ and the project uses [semantic versioning](https://semver.org/).
   it.
 - `suite.db`, in a new `suite-data` volume, holds the labs and memberships, and
   is in every backup.
+- Each sign-in has its own id, passed to the tools as `X-Suite-Session`, for
+  what they keep until signing out (the Plasmid Editor's open tabs).
 
 ### Changed
 - MoClo's, the editor's and the backup console's own sign-in pages, the

@@ -511,3 +511,15 @@ def test_only_administrators_manage_accounts(portal):
     assert client.post('/api/admin/users', json={'username': 'x1x', 'password': 'x' * 8}).status_code == 403
     assert client.delete('/api/admin/users/boss').status_code == 403
     assert client.put('/api/admin/users/boss/password', json={'password': 'x' * 8}).status_code == 403
+
+
+def test_each_sign_in_has_its_own_id_for_the_tools(portal):
+    """What a tool keeps until signing out (the editor's tabs) is keyed by this."""
+    _, client, _ = portal
+    sign_in(client, 'alice', 'alice-password')
+    first = check(client).headers['X-Suite-Session']
+    assert first and check(client).headers['X-Suite-Session'] == first      # the same while signed in
+    client.post('/api/logout')
+    assert 'X-Suite-Session' not in check(client, '/health').headers
+    sign_in(client, 'alice', 'alice-password')
+    assert check(client).headers['X-Suite-Session'] != first               # a new one after signing in again

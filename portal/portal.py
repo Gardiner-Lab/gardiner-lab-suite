@@ -36,6 +36,7 @@ Three things shape the design:
 import hashlib
 import os
 import time
+import uuid
 from datetime import timedelta
 from functools import wraps
 from pathlib import Path
@@ -111,6 +112,9 @@ def start_session(account) -> None:
     session.clear()
     session['username'] = account['username']
     session['stamp'] = password_stamp(account['password_hash'])
+    # This sign-in's own id, passed to the tools (X-Suite-Session) for what
+    # they keep until signing out, such as the editor's open tabs.
+    session['sid'] = uuid.uuid4().hex
     session.permanent = True
 
 
@@ -179,6 +183,11 @@ def check():
         response = make_response('', 200)
         if account is not None:
             response.headers['X-Suite-User'] = account['username']
+            # Only a sign-in that has an id (any made since ids were added): this
+            # answer goes to the proxy, not the browser, so one made up here
+            # would not be kept.
+            if session.get('sid'):
+                response.headers['X-Suite-Session'] = session['sid']
     response.headers['Cache-Control'] = 'no-store'
     return response
 
