@@ -19,8 +19,10 @@ ENV MOCLO_DB=/moclo/moclo.db \
     URL_PREFIX=/account
 
 EXPOSE 5003
+# 127.0.0.1, not localhost: in Alpine localhost is IPv6 (::1) first, and
+# gunicorn listens on IPv4 only.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD wget -qO- http://localhost:5003/health > /dev/null || exit 1
+    CMD wget -qO- http://127.0.0.1:5003/health > /dev/null || exit 1
 
 # Every request to a tool waits on /api/check, so threads keep a slow
 # sign-in (bcrypt is deliberately slow) from holding everyone else up.

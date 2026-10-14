@@ -8,6 +8,21 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-10-14
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.1 |
+| Sign-in service | 2.0.2 |
+| Backup service | 2.0.2 |
+
+### Fixed
+- The proxy and the sign-in service reported themselves unhealthy in
+  `docker ps` although both worked: their health checks asked `localhost`,
+  which in Alpine is the IPv6 address first, where neither listens. They ask
+  `127.0.0.1` now.
+
 ## [2.0.1] - 2026-10-14
 
 | Component | Version |
