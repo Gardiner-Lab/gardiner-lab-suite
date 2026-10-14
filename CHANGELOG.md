@@ -8,6 +8,21 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-10-14
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.1 |
+| Sign-in service | 2.0.1 |
+| Backup service | 2.0.1 |
+
+### Changed
+- Plasmid Editor 0.3.1: the sequences open in the editor are kept, as tabs in
+  the Open panel, until signing out (unsaved edits included), keyed by the
+  suite's id for the sign-in; and the editor's side panels stay in view while
+  the sequence scrolls.
+
 ## [2.0.0] - 2026-10-14
 
 | Component | Version |
