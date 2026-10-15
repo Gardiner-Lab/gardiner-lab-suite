@@ -8,6 +8,20 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-10-15
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.3 |
+| Sign-in service | 2.0.3 |
+| Backup service | 2.0.3 |
+
+### Changed
+- Plasmid Editor 0.3.3: the differences in a sequencing alignment can be
+  clicked to go to them, with Previous and Next between them; and judging an
+  alignment sufficient needs the glycerol stock the clone is kept as.
+
 ## [2.0.2] - 2026-10-14
 
 | Component | Version |
