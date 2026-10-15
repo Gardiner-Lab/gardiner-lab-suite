@@ -8,6 +8,24 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-10-15
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.5 |
+| Lab Notebook | 0.4.1 |
+| Seed Bank | 0.2.0 |
+| Sign-in service | 2.5.0 |
+| Backup service | 2.5.0 |
+
+### Changed
+- Seed Bank 0.2.0: every code starts with its lab's own code (GL-S-0042), so no two labs' codes are
+  ever the same.
+  - Each lab numbers from 1.
+  - The lab lead or an admin can choose the lab code before the lab's first record.
+- Lab Notebook 0.4.1: seed links read the new codes.
+
 ## [2.4.1] - 2026-10-15
 
 | Component | Version |
