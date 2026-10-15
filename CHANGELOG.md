@@ -8,6 +8,20 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-15
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.5 |
+| Lab Notebook | 0.2.0 |
+| Sign-in service | 2.2.0 |
+| Backup service | 2.2.0 |
+
+### Changed
+- Lab Notebook 0.2.0: a 🗑 Deleted view to bring deleted pages and protocols back. Owners restore
+  their own, protocol editors their protocols, and administrators anything.
+
 ## [2.1.1] - 2026-10-15
 
 | Component | Version |
