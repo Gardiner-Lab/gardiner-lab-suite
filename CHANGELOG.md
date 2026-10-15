@@ -8,6 +8,21 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-10-15
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.4 |
+| Sign-in service | 2.0.4 |
+| Backup service | 2.0.4 |
+
+### Changed
+- Plasmid Editor 0.3.4: correct a plasmid to its sequencing read, with
+  features and translations moving along; every change to a sequence is kept
+  in its history with who made it, and any version can be rolled back to; a
+  save over a newer version is held back instead of overwriting it.
+
 ## [2.0.3] - 2026-10-15
 
 | Component | Version |
