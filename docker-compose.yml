@@ -52,7 +52,7 @@ services:
   # users table) and keeps the labs, their registration codes and who is in
   # which lab in suite-data, which the tools read.
   portal:
-    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.4.0}
+    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.4.1}
     container_name: lab-portal
     # New accounts go into MoClo's directory, so it must exist first.
     depends_on:
@@ -209,7 +209,7 @@ services:
       - "5005"
 
   backup:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.4.0}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.4.1}
     container_name: lab-backup
     volumes:
       # Read-only: the backup never needs to change the live data.
@@ -242,7 +242,7 @@ services:
   # access to the volumes in order to restore, which is why the nightly job is
   # a separate service that does not.
   backup-console:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.4.0}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.4.1}
     container_name: lab-backup-console
     command: ["api"]
     volumes:
@@ -275,7 +275,7 @@ services:
   # deliberately does not have. Kept behind a profile so it never starts with
   # the stack; `make restore` is the way in.
   restore:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.4.0}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.4.1}
     container_name: lab-restore
     profiles: ["restore"]
     volumes:

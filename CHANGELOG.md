@@ -8,6 +8,17 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-10-15
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.5 |
+| Lab Notebook | 0.4.0 |
+| Seed Bank | 0.1.0 |
+| Sign-in service | 2.4.1 |
+| Backup service | 2.4.1 |
+
 ### Fixed
 - **Backups could copy secrets to the backup drive.** The configuration archive took the whole suite
   folder minus a few names (`.env`, `*.key`, `*.pem`). Anything else went along to the backup drive
