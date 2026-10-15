@@ -35,6 +35,7 @@ services:
       - moclo
       - editor
       - notebook
+      - seeds
       - backup-console
     restart: unless-stopped
     healthcheck:
@@ -51,7 +52,7 @@ services:
   # users table) and keeps the labs, their registration codes and who is in
   # which lab in suite-data, which the tools read.
   portal:
-    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.3.0}
+    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.4.0}
     container_name: lab-portal
     # New accounts go into MoClo's directory, so it must exist first.
     depends_on:
@@ -155,7 +156,7 @@ services:
   # the account directory and MoClo's saved assemblies, the editor's plasmids
   # and the suite's labs, and writes only to its own volume.
   notebook:
-    image: ghcr.io/gardiner-lab/lab-notebook:${NOTEBOOK_VERSION:-0.3.0}
+    image: ghcr.io/gardiner-lab/lab-notebook:${NOTEBOOK_VERSION:-0.4.0}
     container_name: lab-notebook
     depends_on:
       moclo:
@@ -177,8 +178,38 @@ services:
     expose:
       - "5004"
 
+  # The seed bank, at /seeds/: plant lines, seed lots and plants, their
+  # lineage, phenotypes with photos and 3D scans, and labels. It reads the
+  # account directory and labs, the editor's plasmids and the notebook's links,
+  # and writes only to its own volume.
+  seeds:
+    image: ghcr.io/gardiner-lab/seed-bank:${SEEDS_VERSION:-0.1.0}
+    container_name: lab-seeds
+    depends_on:
+      moclo:
+        condition: service_healthy
+    volumes:
+      - seeds-data:/seeds
+      - moclo-data:/moclo:ro
+      - editor-data:/editor:ro
+      - notebook-data:/notebook:ro
+      - suite-data:/suite:ro
+    environment:
+      - URL_PREFIX=/seeds
+      - SUITE_HOME_URL=/
+      - SUITE_LOGIN_URL=/account/login
+      - SUITE_LOGOUT_URL=/account/logout
+      - EDITOR_URL=/editor
+      - NOTEBOOK_URL=/notebook
+      # Where phones reach the suite, for the QR codes on labels, e.g.
+      # http://UU115629:8080. Unset: the address the label page is opened at.
+      - SUITE_PUBLIC_URL=${SUITE_PUBLIC_URL:-}
+    restart: unless-stopped
+    expose:
+      - "5005"
+
   backup:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.3.0}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.4.0}
     container_name: lab-backup
     volumes:
       # Read-only: the backup never needs to change the live data.
@@ -186,6 +217,7 @@ services:
       - editor-data:/data:ro
       - suite-data:/suite:ro
       - notebook-data:/notebook:ro
+      - seeds-data:/seeds:ro
       # The network drive, mounted on the host. See docs/BACKUP.md.
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
@@ -210,7 +242,7 @@ services:
   # access to the volumes in order to restore, which is why the nightly job is
   # a separate service that does not.
   backup-console:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.3.0}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.4.0}
     container_name: lab-backup-console
     command: ["api"]
     volumes:
@@ -218,6 +250,7 @@ services:
       - editor-data:/data
       - suite-data:/suite
       - notebook-data:/notebook
+      - seeds-data:/seeds
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
@@ -242,7 +275,7 @@ services:
   # deliberately does not have. Kept behind a profile so it never starts with
   # the stack; `make restore` is the way in.
   restore:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.3.0}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.4.0}
     container_name: lab-restore
     profiles: ["restore"]
     volumes:
@@ -250,6 +283,7 @@ services:
       - editor-data:/data
       - suite-data:/suite
       - notebook-data:/notebook
+      - seeds-data:/seeds
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
@@ -265,6 +299,8 @@ volumes:
   suite-data:
   # The lab notebook: notebooks, the protocol library and their history.
   notebook-data:
+  # The seed bank: lines, seed lots, plants, and their photos and scans.
+  seeds-data:
   # Backup settings chosen in the console, shared by the console, the
   # scheduler and the restore service.
   backup-config:

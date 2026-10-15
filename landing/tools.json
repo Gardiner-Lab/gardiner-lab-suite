@@ -50,6 +50,21 @@
       ],
       "health": "/notebook/health",
       "status": "live"
+    },
+    {
+      "id": "seeds",
+      "name": "Seed Bank",
+      "icon": "🌱",
+      "colour": "#16a34a",
+      "href": "/seeds/",
+      "summary": "The lab's plant lines, seed lots and plants: lineage from generation to generation, the plasmids each line carries, phenotypes with photos and 3D scans.",
+      "points": [
+        "Lines, seed lots and every plant sown, with their pedigree",
+        "Sow, harvest, cross and select; segregation tests on selection plates",
+        "Storage locations, labels with QR codes, links from the notebook"
+      ],
+      "health": "/seeds/health",
+      "status": "live"
     }
   ],
   "admin": [

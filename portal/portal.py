@@ -47,7 +47,7 @@ from flask import Flask, jsonify, make_response, redirect, request, send_file, s
 import directory
 import labs
 
-APP_VERSION = '2.3.0'
+APP_VERSION = '2.4.0'
 
 # The first administrator's password on a new installation (MoClo creates
 # 'admin' with it). It is published, so it may be used once only: whoever
@@ -157,7 +157,7 @@ def role_of(account) -> str:
 
 # What anyone may reach without signing in, besides this service itself: the
 # tools' health checks, for monitoring. They say "healthy" and nothing more.
-PUBLIC_PATHS = frozenset({'/health', '/editor/health', '/notebook/health', '/backup/health'})
+PUBLIC_PATHS = frozenset({'/health', '/editor/health', '/notebook/health', '/seeds/health', '/backup/health'})
 
 
 def requested_path() -> str:

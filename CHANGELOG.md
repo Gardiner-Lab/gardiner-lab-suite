@@ -8,6 +8,31 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-15
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.5 |
+| Lab Notebook | 0.4.0 |
+| Seed Bank | 0.1.0 |
+| Sign-in service | 2.4.0 |
+| Backup service | 2.4.0 |
+
+### Added
+- **Seed Bank** at `/seeds/`, a new tool in the suite: plant lines, seed lots and plants, with
+  lineage traced plant by plant.
+  - Each line records the plasmids it carries, from the Plasmid Editor.
+  - Segregation tests, storage locations, phenotypes with photos and 3D scans.
+  - Labels with QR codes, and links from the notebook.
+  - A lab's stocks are shared within the lab and hidden from other labs.
+  - It has its own volume, `seeds-data`. Backups, the backup console and restores include it.
+  - `SUITE_PUBLIC_URL` (e.g. `http://UU115629:8080`) sets where label QR codes point, so phones
+    can reach them.
+
+### Changed
+- Lab Notebook 0.4.0: link seed lots, plants and lines from the Seed Bank with `@`.
+
 ## [2.3.0] - 2026-10-15
 
 | Component | Version |

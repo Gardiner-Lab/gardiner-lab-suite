@@ -33,6 +33,8 @@ check "/editor/login"   302 "Plasmid Editor login, to the suite's"
 check "/editor"         301 "prefix redirect"
 check "/notebook/health" 200 "Lab Notebook"
 check "/notebook"       301 "prefix redirect"
+check "/seeds/health"   200 "Seed Bank"
+check "/seeds"          301 "prefix redirect"
 
 if [[ "$fail" == 0 ]]; then
   echo "All routes answered."

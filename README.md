@@ -10,6 +10,7 @@ landing page that lists the tools:
 | `/` (everything else) | [MoClo Library Tool](https://github.com/Gardiner-Lab/moclo-library-tool) | its own |
 | `/editor/` | [Plasmid Editor](https://github.com/Gardiner-Lab/plasmid-editor) | its own |
 | `/notebook/` | [Lab Notebook](https://github.com/Gardiner-Lab/lab-notebook) | its own |
+| `/seeds/` | [Seed Bank](https://github.com/Gardiner-Lab/seed-bank) | its own |
 
 Each tool keeps its own published image and updates independently — nothing is
 copied into this repository. The two share a data volume so a plasmid edited in
@@ -146,6 +147,7 @@ location = /        -> landing page (static)
 location /account/  -> sign-in, registration and labs
 location /editor/   -> Plasmid Editor   (URL_PREFIX=/editor)
 location /notebook/ -> Lab Notebook     (URL_PREFIX=/notebook)
+location /seeds/    -> Seed Bank        (URL_PREFIX=/seeds)
 location /          -> MoClo            (catch-all)
 ```
 
