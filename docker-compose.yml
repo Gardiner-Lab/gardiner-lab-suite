@@ -34,6 +34,7 @@ services:
       - portal
       - moclo
       - editor
+      - notebook
       - backup-console
     restart: unless-stopped
     healthcheck:
@@ -50,7 +51,7 @@ services:
   # users table) and keeps the labs, their registration codes and who is in
   # which lab in suite-data, which the tools read.
   portal:
-    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.0.4}
+    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.1.0}
     container_name: lab-portal
     # New accounts go into MoClo's directory, so it must exist first.
     depends_on:
@@ -149,14 +150,42 @@ services:
     expose:
       - "5001"
 
+  # The lab notebook, at /notebook/: everyone's notebook of days and pages, the
+  # shared protocol library, MoClo reactions and links to plasmids. It reads
+  # the account directory and MoClo's saved assemblies, the editor's plasmids
+  # and the suite's labs, and writes only to its own volume.
+  notebook:
+    image: ghcr.io/gardiner-lab/lab-notebook:${NOTEBOOK_VERSION:-0.1.0}
+    container_name: lab-notebook
+    depends_on:
+      moclo:
+        condition: service_healthy
+    volumes:
+      - notebook-data:/notebook
+      - moclo-data:/moclo:ro
+      - editor-data:/editor:ro
+      - suite-data:/suite:ro
+    environment:
+      - URL_PREFIX=/notebook
+      - SUITE_HOME_URL=/
+      - SUITE_LOGIN_URL=/account/login
+      - SUITE_LOGOUT_URL=/account/logout
+      # Plasmid links open in the editor; "MoClo" in the bar opens the parts.
+      - EDITOR_URL=/editor
+      - MOCLO_URL=/
+    restart: unless-stopped
+    expose:
+      - "5004"
+
   backup:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.0.4}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.1.0}
     container_name: lab-backup
     volumes:
       # Read-only: the backup never needs to change the live data.
       - moclo-data:/moclo:ro
       - editor-data:/data:ro
       - suite-data:/suite:ro
+      - notebook-data:/notebook:ro
       # The network drive, mounted on the host. See docs/BACKUP.md.
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
@@ -181,13 +210,14 @@ services:
   # access to the volumes in order to restore, which is why the nightly job is
   # a separate service that does not.
   backup-console:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.0.4}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.1.0}
     container_name: lab-backup-console
     command: ["api"]
     volumes:
       - moclo-data:/moclo
       - editor-data:/data
       - suite-data:/suite
+      - notebook-data:/notebook
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
@@ -212,13 +242,14 @@ services:
   # deliberately does not have. Kept behind a profile so it never starts with
   # the stack; `make restore` is the way in.
   restore:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.0.4}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.1.0}
     container_name: lab-restore
     profiles: ["restore"]
     volumes:
       - moclo-data:/moclo
       - editor-data:/data
       - suite-data:/suite
+      - notebook-data:/notebook
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
@@ -232,6 +263,8 @@ volumes:
   editor-data:
   # The suite's own: labs, their registration codes, and who is in which.
   suite-data:
+  # The lab notebook: notebooks, the protocol library and their history.
+  notebook-data:
   # Backup settings chosen in the console, shared by the console, the
   # scheduler and the restore service.
   backup-config:

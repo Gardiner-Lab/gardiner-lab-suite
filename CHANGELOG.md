@@ -8,6 +8,25 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-15
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.4 |
+| Lab Notebook | 0.1.0 |
+| Sign-in service | 2.1.0 |
+| Backup service | 2.1.0 |
+
+### Added
+- **Lab Notebook** at `/notebook/`, a new tool in the suite: everyone's notebook of days and pages,
+  a shared protocol library with active tables, MoClo reactions and plasmid links that open in the
+  Plasmid Editor. Its design follows Trilium Notes. Lab leads read their lab's notebooks and
+  administrators read all of them. It has its own volume, `notebook-data`, and reads the account
+  directory, the editor's plasmids and the labs without changing them.
+- Backups, the backup console and restores include the notebook's database.
+- `/notebook/health` answers without signing in, like the other tools' health checks.
+
 ## [2.0.4] - 2026-10-15
 
 | Component | Version |

@@ -35,6 +35,21 @@
       ],
       "health": "/editor/health",
       "status": "live"
+    },
+    {
+      "id": "notebook",
+      "name": "Lab Notebook",
+      "icon": "📓",
+      "colour": "#d97706",
+      "href": "/notebook/",
+      "summary": "Your lab notebook: a page for every day, the lab's shared protocols, MoClo reactions and links to plasmids.",
+      "points": [
+        "Start a day; pages, labels and links between them",
+        "Protocols with active tables that scale, calculate and tick off",
+        "MoClo reactions and plasmid links that open in the editor"
+      ],
+      "health": "/notebook/health",
+      "status": "live"
     }
   ],
   "admin": [

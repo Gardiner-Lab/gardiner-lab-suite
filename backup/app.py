@@ -39,7 +39,7 @@ from flask import Flask, jsonify, redirect, request, send_file, session
 import storage
 from storage import StorageError
 
-APP_VERSION = '2.0.4'
+APP_VERSION = '2.1.0'
 
 CONFIG_DIR = Path(os.environ.get('CONFIG_STORE', '/config-store'))
 SETTINGS_FILE = CONFIG_DIR / 'settings.json'
@@ -60,6 +60,7 @@ DATABASES = {
     'parts.db': Path(os.environ.get('PARTS_DB', '/moclo/parts.db')),
     'plasmid_editor.db': Path(os.environ.get('EDITOR_DB', '/data/plasmid_editor.db')),
     'suite.db': Path(os.environ.get('SUITE_DB', '/suite/suite.db')),
+    'notebook.db': Path(os.environ.get('NOTEBOOK_DB', '/notebook/notebook.db')),
 }
 
 # The MoClo tool creates 'admin' with this password when no such account exists.

@@ -152,6 +152,7 @@ backup_db "MoClo main"      "${MOCLO_DB:-/moclo/moclo.db}"
 backup_db "MoClo parts"     "${PARTS_DB:-/moclo/parts.db}"
 backup_db "Plasmid Editor"  "${EDITOR_DB:-/data/plasmid_editor.db}"
 backup_db "Labs and codes" "${SUITE_DB:-/suite/suite.db}"
+backup_db "Lab Notebook"   "${NOTEBOOK_DB:-/notebook/notebook.db}"
 
 [ -n "$DB_REPORT" ] || fail "no databases were found to back up - check the volume mounts"
 

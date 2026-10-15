@@ -130,6 +130,7 @@ restore_db "moclo.db"           "${MOCLO_DB:-/moclo/moclo.db}"
 restore_db "parts.db"           "${PARTS_DB:-/moclo/parts.db}"
 restore_db "plasmid_editor.db"  "${EDITOR_DB:-/data/plasmid_editor.db}"
 restore_db "suite.db"           "${SUITE_DB:-/suite/suite.db}"
+restore_db "notebook.db"        "${NOTEBOOK_DB:-/notebook/notebook.db}"
 
 if [ -f "$ROOT/files/config.tar.gz" ]; then
     say ""
