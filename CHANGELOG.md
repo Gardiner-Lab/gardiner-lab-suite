@@ -13,7 +13,7 @@ and the project uses [semantic versioning](https://semver.org/).
 | Component | Version |
 | --- | --- |
 | MoClo Library Tool | 1.13.0 |
-| Plasmid Editor | 0.3.4 |
+| Plasmid Editor | 0.3.5 |
 | Lab Notebook | 0.1.0 |
 | Sign-in service | 2.1.0 |
 | Backup service | 2.1.0 |
@@ -26,6 +26,10 @@ and the project uses [semantic versioning](https://semver.org/).
   directory, the editor's plasmids and the labs without changing them.
 - Backups, the backup console and restores include the notebook's database.
 - `/notebook/health` answers without signing in, like the other tools' health checks.
+
+### Changed
+- Plasmid Editor 0.3.5: the "✓ Sequenced" and new "Not sequenced" tags open the plasmid on the
+  Sequencing page.
 
 ## [2.0.4] - 2026-10-15
 
