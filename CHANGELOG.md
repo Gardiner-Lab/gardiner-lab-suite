@@ -8,6 +8,27 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Backups could copy secrets to the backup drive.** The configuration archive took the whole suite
+  folder minus a few names (`.env`, `*.key`, `*.pem`). Anything else went along to the backup drive
+  in every nightly archive:
+  - a copy of `.env` (`.env.bak`, a renamed env file);
+  - the `pre-install-backup/` snapshots, with every account's password hash and the labs'
+    registration codes;
+  - caches.
+
+  It now takes a list of named files: the compose files, `nginx/`, `landing/`, `scripts/`, `docs/`,
+  `.env.example`, `Makefile`, `install.sh`. Secret-looking files are left out even inside those
+  folders. A test runs the real script against a folder full of such files.
+- **`make check` tested the wrong thing.**
+  - Signed out, every tool page is answered by the proxy's sign-in redirect, so the checks of
+    `/login`, `/parts` and `/editor/login` passed even with MoClo or the editor down.
+  - It also ignored `SUITE_PORT` in `.env`, so a suite on another port was never the one checked.
+
+  It now reads the port from `.env` (as text, never running it), checks the sign-in gate for
+  what it is, and checks each tool behind the proxy at its health route. It also compares each
+  tool's running version with the version this release pins.
+
 ## [2.4.0] - 2026-10-15
 
 | Component | Version |

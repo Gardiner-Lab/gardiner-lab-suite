@@ -24,8 +24,9 @@ make restore         # put the latest backup back
 | `parts.db` — the shared MoClo parts library | SQLite online backup |
 | `plasmid_editor.db` — sequences, sequencing reads, verifications | SQLite online backup |
 | `suite.db` — labs, their registration codes, who is in which lab | SQLite online backup |
-| Anything else in either volume | tar |
-| The stack's configuration (compose, nginx, landing page) | tar, **secrets excluded** |
+| Anything else in MoClo's and the editor's volumes | tar |
+| `notebook.db`, `seeds.db` (with their photos and files) | SQLite online backup |
+| The stack's configuration: the compose files, `nginx/`, `landing/`, `scripts/`, `docs/`, `.env.example`, `Makefile`, `install.sh` | tar, **these named files only** |
 
 Databases are copied with SQLite's **online backup**, so the applications keep
 running and the copy is never caught mid-write. Copying a live `.db` file with
@@ -34,8 +35,18 @@ running and the copy is never caught mid-write. Copying a live `.db` file with
 **`.env` is deliberately not backed up.** It holds `SECRET_KEY` and
 `MOCLO_SECRET_KEY`, and a backup drive is usually more widely readable than the
 server. Losing those keys costs everyone a fresh login, nothing more — keep
-them in your password manager. To include it anyway, drop the `--exclude='.env'`
-from `backup/backup.sh`.
+them in your password manager.
+
+The configuration is taken from a **list of named files**
+(`CONFIG_ITEMS` in `backup/backup.sh`), not the whole folder. So nothing else
+lying in it ever reaches the backup drive:
+- a copy of `.env` (`.env.bak`, `production.env`);
+- keys and certificates;
+- the `pre-install-backup/` snapshots, or old archives.
+
+Files that look like secrets (`*.env`, `*.key`, `*.pem` …) are left out even
+inside the listed folders. A test runs the real script against a folder full of
+such files to make sure.
 
 ## The backup console
 

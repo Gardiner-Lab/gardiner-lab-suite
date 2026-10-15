@@ -174,14 +174,31 @@ copy_extras() {
 copy_extras "moclo-volume"  "${MOCLO_DIR:-/moclo}"
 copy_extras "editor-volume" "${EDITOR_DIR:-/data}"
 
+# The stack's configuration: compose files, nginx routing, the landing page and
+# the install script, enough to rebuild the stack. Named one by one, so that
+# nothing else in the folder ever leaves it: not .env or a copy of it (the
+# secrets; see docs/BACKUP.md), not keys or certificates, not snapshots taken
+# before an install or old archives, whatever they are called.
+CONFIG_ITEMS="docker-compose.yml docker-compose.local.yml docker-compose.override.yml .env.example
+Makefile install.sh README.md CHANGELOG.md LICENSE nginx landing scripts docs"
+CONFIG_SECRETS="*.env .env.[!e]* *.key *.pem *.p12 *.pfx *.crt id_rsa* id_ed25519* *secret* *password*"
+
 if [ -d "${CONFIG_DIR:-/config}" ]; then
-    # Compose files, nginx routing and the landing page: enough to rebuild the
-    # stack. Secrets are deliberately left out; see docs/BACKUP.md. So is the
-    # default local backup folder, or every archive would contain the last.
-    tar czf "$STAGING/$NAME/files/config.tar.gz" -C "${CONFIG_DIR:-/config}" \
-        --exclude='.env' --exclude='*.key' --exclude='*.pem' --exclude='.git' \
-        --exclude='./backups' --exclude='__pycache__' . 2>/dev/null \
-        && log "  stack configuration: archived (secrets excluded)"
+    present=""
+    for item in $CONFIG_ITEMS; do
+        [ -e "${CONFIG_DIR:-/config}/$item" ] && present="$present $item"
+    done
+    # Even inside those folders, nothing that looks like a secret.
+    excludes=""
+    for pattern in $CONFIG_SECRETS; do
+        excludes="$excludes --exclude=$pattern"
+    done
+    if [ -n "$present" ]; then
+        # shellcheck disable=SC2086  # word splitting wanted: lists of names and options
+        (set -f; tar czf "$STAGING/$NAME/files/config.tar.gz" -C "${CONFIG_DIR:-/config}" \
+            $excludes --exclude='__pycache__' $present) 2>/dev/null \
+            && log "  stack configuration: archived ($(echo $present | wc -w) items; .env and other secrets left out)"
+    fi
 fi
 
 # ---------------------------------------------------------------------------
