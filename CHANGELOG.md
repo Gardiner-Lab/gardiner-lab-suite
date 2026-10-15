@@ -8,6 +8,22 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-10-15
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.5 |
+| Lab Notebook | 0.1.1 |
+| Sign-in service | 2.1.1 |
+| Backup service | 2.1.1 |
+
+### Fixed
+- **Backups failed after installing 2.1.0.** The backup could not read the Lab Notebook's
+  database from its read-only mount, because the notebook kept it in SQLite's WAL mode. A failure
+  to copy any one database stops the backup, so nothing was backed up. Lab Notebook 0.1.1 uses the
+  ordinary journal, as the other tools do, and converts its database when it starts.
+
 ## [2.1.0] - 2026-10-15
 
 | Component | Version |
