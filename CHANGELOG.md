@@ -8,6 +8,23 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-15
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.3.5 |
+| Lab Notebook | 0.3.0 |
+| Sign-in service | 2.3.0 |
+| Backup service | 2.3.0 |
+
+### Changed
+- Lab Notebook 0.3.0: photos and attachments on pages and protocols.
+  - Any kind of file can be attached: Word, PowerPoint, Excel, PDF and more.
+  - Photos show in the page, PDFs open in the browser, and Office files open in their programs.
+  - The files are kept in the notebook's database, so backups include them. The database, and so
+    each backup, grows with the photos attached.
+
 ## [2.2.0] - 2026-10-15
 
 | Component | Version |
