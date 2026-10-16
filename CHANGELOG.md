@@ -8,6 +8,18 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-10-16
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.4.1 |
+| Lab Notebook | 0.9.0 |
+| Seed Bank | 0.2.0 |
+| Lab Stocks | 0.1.0 |
+| Sign-in service | 2.6.0 |
+| Backup service | 2.6.0 |
+
 ### Added
 - **HTTPS.** The suite is served over https on its port, and plain http to it is sent on to https,
   so bookmarks keep working.
@@ -18,24 +30,7 @@ and the project uses [semantic versioning](https://semver.org/).
     `/lab-suite-ca.crt` (no sign-in needed); see docs/HTTPS.md. A university certificate can be
     used instead.
   - Sign-in cookies are secure by default (`SESSION_COOKIE_SECURE=true`).
-  - Copy buttons now work: browsers allow copying only on secure pages.
-
-### Fixed
-- The Copy button for a lab's registration code on the dashboard now copies over plain http too.
-
-## [2.6.0] - 2026-10-16
-
-| Component | Version |
-| --- | --- |
-| MoClo Library Tool | 1.13.0 |
-| Plasmid Editor | 0.4.1 |
-| Lab Notebook | 0.5.0 |
-| Seed Bank | 0.2.0 |
-| Lab Stocks | 0.1.0 |
-| Sign-in service | 2.6.0 |
-| Backup service | 2.6.0 |
-
-### Added
+  - Copy buttons work: browsers allow copying only on secure pages.
 - **Lab Stocks** at `/stocks/`, a new tool in the suite: glycerol stocks (`GL-G-0042`) and primers
   (`GL-O-0007`), numbered per lab.
   - Each glycerol stock is linked to its plasmid in the Plasmid Editor.
@@ -50,7 +45,15 @@ and the project uses [semantic versioning](https://semver.org/).
   Stocks, with the lab's next number; a plasmid's stocks show beside its tags; designed primers are
   saved to the lab's primers with one click, and **Lab primers** finds the lab's primers that bind
   a sequence.
-- Lab Notebook 0.5.0: link glycerol stocks and primers from Lab Stocks with `@`.
+- Lab Notebook 0.9.0 (from 0.4.1; see its changelog):
+  - links to Lab Stocks with `@`;
+  - export to PDF and Word from any level of the tree, with photos, attached PDFs' pages and files;
+  - lab leads share notebooks with labs or people, and protocols are their lab's, shared with other
+    labs by their authors (existing protocols become their author's lab's);
+  - gel photos with numbered wells, numbered photos of plants, and a markup editor for photos.
+
+### Fixed
+- The Copy button for a lab's registration code on the dashboard copies over plain http too.
 
 ## [2.5.0] - 2026-10-15
 
