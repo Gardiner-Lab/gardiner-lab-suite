@@ -25,11 +25,15 @@ services:
   proxy:
     image: nginx:1.27-alpine
     container_name: lab-proxy
+    # https on the suite's port; plain http to it is sent on to https.
     ports:
-      - "${SUITE_PORT:-8080}:80"
+      - "${SUITE_PORT:-8080}:443"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./landing:/usr/share/nginx/html:ro
+      # This machine's certificate and the lab authority's (scripts/make-certs.sh);
+      # the authority's key stays in certs-ca/, which is not mounted.
+      - ./certs:/etc/nginx/certs:ro
     depends_on:
       - portal
       - moclo
@@ -42,7 +46,7 @@ services:
     healthcheck:
       # 127.0.0.1, not localhost: in Alpine localhost is IPv6 (::1) first, and
       # nginx here listens on IPv4 only.
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/suite-health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/suite-health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -66,7 +70,7 @@ services:
       - suite-data:/suite
     environment:
       - SECRET_KEY=${SUITE_SECRET_KEY:-${SECRET_KEY}}
-      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
       # The first lab, created with a generated registration code on a new
       # installation.
       - DEFAULT_LAB_SOURCE=${DEFAULT_LAB_SOURCE:-}
@@ -149,7 +153,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # Behind the proxy the session cookie is plain HTTP unless you terminate
       # TLS in front of this stack; set true once you do.
-      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
     restart: unless-stopped
     expose:
       - "5001"
@@ -205,7 +209,7 @@ services:
       - EDITOR_URL=/editor
       - NOTEBOOK_URL=/notebook
       # Where phones reach the suite, for the QR codes on labels, e.g.
-      # http://UU115629:8080. Unset: the address the label page is opened at.
+      # https://UU115629:8080. Unset: the address the label page is opened at.
       - SUITE_PUBLIC_URL=${SUITE_PUBLIC_URL:-}
     restart: unless-stopped
     expose:
@@ -300,7 +304,7 @@ services:
       - SUITE_DASHBOARD_URL=/account/
       # Backups may only be written below these paths.
       - ALLOWED_BACKUP_ROOTS=${ALLOWED_BACKUP_ROOTS:-/mnt:/backup}
-      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-true}
     expose:
       - "5002"
     restart: unless-stopped

@@ -1,4 +1,4 @@
-.PHONY: help install up down logs pull update restart-proxy local check         backup backup-init backup-check backup-list backup-logs restore restore-check
+.PHONY: help install up down logs pull update restart-proxy local check certs         backup backup-init backup-check backup-list backup-logs restore restore-check
 
 help:
 	@echo "Gardiner Lab Tools - available commands"
@@ -11,6 +11,7 @@ help:
 	@echo "restart-proxy - Reload the landing page and routing only"
 	@echo "local         - Build the editor from ../plasmid-editor instead of pulling"
 	@echo "check         - Verify every route answers"
+	@echo "certs         - Make or renew the https certificate (docs/HTTPS.md)"
 	@echo ""
 	@echo "Backups"
 	@echo "  backup-init   - Mark the mounted network drive as the backup destination (once)"
@@ -45,6 +46,10 @@ local:
 
 check:
 	./scripts/check.sh
+
+certs:
+	./scripts/make-certs.sh
+	docker compose restart proxy
 
 # --- backups ----------------------------------------------------------------
 

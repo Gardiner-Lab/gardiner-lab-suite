@@ -157,6 +157,14 @@ if [ "$ROLLBACK" = 1 ]; then
 fi
 
 # --- preflight ---------------------------------------------------------------
+# The suite is served over https: make (or renew) its certificates, and mark
+# its sign-in cookies secure. See scripts/make-certs.sh and docs/HTTPS.md.
+https_setup() {
+    step "The https certificate"
+    ./scripts/make-certs.sh | while read -r line; do ok "$line"; done
+    force_env SESSION_COOKIE_SECURE true
+}
+
 step "Checking Docker"
 command -v docker >/dev/null 2>&1 || die "Docker is not installed. See https://docs.docker.com/get-docker/"
 docker info >/dev/null 2>&1 || die "Docker is installed but not running, or this user may not use it."
@@ -167,6 +175,7 @@ ok "$(docker --version)"
 if [ -f .env ] && docker volume inspect "$SUITE_VOLUME" >/dev/null 2>&1; then
     step "The suite is already installed here: updating it"
     info "Data stays in its volumes; only the programs are replaced."
+    https_setup
     prepare_images
     compose up -d --remove-orphans
     UPDATED=1
@@ -247,7 +256,7 @@ done
 
 step "The plan"
 info "Install the suite (landing page, MoClo Library Tool, Plasmid Editor, backups)"
-info "and serve it at http://$(hostname):$PORT/"
+info "and serve it at https://$(hostname):$PORT/"
 if [ -n "$SRC" ]; then
     info "Take over the existing MoClo:"
     info "  1. save a snapshot of its data in ./pre-install-backup/"
@@ -289,6 +298,7 @@ force_env BACKUP_DEST ./backups
 mkdir -p backups
 chmod 600 .env 2>/dev/null || true
 ok "secrets generated; port $PORT"
+https_setup
 
 prepare_images
 MOCLO_IMAGE="$(moclo_image)"
@@ -353,10 +363,10 @@ fi  # end of fresh installation
 
 step "Waiting for the tools to answer"
 PORT="$(grep -E '^SUITE_PORT=' .env | cut -d= -f2-)"; PORT="${PORT:-8080}"
-answers() { curl -sf "$1" >/dev/null 2>&1 || wget -qO /dev/null "$1" 2>/dev/null; }
+answers() { curl -sfk "$1" >/dev/null 2>&1 || wget -q --no-check-certificate -O /dev/null "$1" 2>/dev/null; }
 healthy=0
 for _ in $(seq 1 60); do
-    if answers "http://localhost:$PORT/health" && answers "http://localhost:$PORT/editor/health"; then
+    if answers "https://localhost:$PORT/health" && answers "https://localhost:$PORT/editor/health"; then
         healthy=1; break
     fi
     sleep 2
@@ -387,7 +397,13 @@ import sqlite3; print(sqlite3.connect('/data/plasmid_editor.db').execute('SELECT
 fi
 
 step "Done"
-info "Open http://$(hostname):$PORT/  (or http://localhost:$PORT/ on this machine)"
+info "Open https://$(hostname):$PORT/  (or https://localhost:$PORT/ on this machine)"
+info ""
+info "${B}Trust the lab's certificate once on each computer${N}, or browsers warn that"
+info "the connection is not private: download it from"
+info "    https://$(hostname):$PORT/lab-suite-ca.crt"
+info "and follow docs/HTTPS.md (Windows: open it, Install Certificate, Current User,"
+info "Trusted Root Certification Authorities). Keep a copy of certs-ca/ somewhere safe."
 if [ "$admin_state" = default ]; then
     info ""
     info "${B}Administrator account${N}:"
@@ -414,7 +430,7 @@ for name, code in sqlite3.connect('file:/suite/suite.db?mode=ro', uri=True).exec
     print(f'{name}: {code}')" 2>/dev/null)"
     info ""
     if [ -n "$codes" ]; then
-        info "${B}Registration codes${N} for new members, at http://$(hostname):$PORT/account/register:"
+        info "${B}Registration codes${N} for new members, at https://$(hostname):$PORT/account/register:"
         printf '%s\n' "$codes" | while read -r line; do info "    $line"; done
     fi
     info "Add other labs, each with its own code, choose lab leads and manage"

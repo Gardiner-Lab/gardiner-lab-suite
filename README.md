@@ -80,10 +80,12 @@ the installer builds it from source, the editor from a checkout at
 
 ```bash
 cp .env.example .env      # fill in SECRET_KEY, MOCLO_SECRET_KEY, ADMIN_PASSWORD
+./scripts/make-certs.sh   # the https certificates (install.sh does this itself)
 docker compose up -d
 ```
 
-Then open `http://your-server:8080`. Change the port with `SUITE_PORT`.
+Then open `https://your-server:8080`. Change the port with `SUITE_PORT`. Each
+computer trusts the lab's certificate once; see [HTTPS](#https).
 
 ### Building from source
 
@@ -285,19 +287,23 @@ convenient way to signal what is coming.
 | `SECRET_KEY` | — | **Required.** Signs Plasmid Editor sessions. |
 | `MOCLO_SECRET_KEY` | — | **Required.** Signs MoClo sessions. Use a different value. |
 | `SUITE_SECRET_KEY` | `SECRET_KEY` | Signs the suite's sign-in, which every tool trusts. |
-| `SUITE_PORT` | `8080` | Host port for the whole suite. |
+| `SUITE_PORT` | `8080` | Host port for the whole suite, over https. |
+| `SUITE_HOSTNAMES` | — | More names or addresses for the https certificate, comma-separated. |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `admin` / — | The first administrator's password. Empty: `admin123`, which must be changed at the first sign-in. |
 | `ALLOW_REGISTRATION` | `true` | Set `false` to close registration. |
 | `REQUIRE_REGISTRATION_CODE` | `true` | Set `false` to let anyone register without a lab's code. |
 | `DEFAULT_LAB_SOURCE` | — | The first lab, created with its own code on a new installation. |
-| `SESSION_COOKIE_SECURE` | `false` | Set `true` once TLS terminates in front of this stack. |
+| `SESSION_COOKIE_SECURE` | `true` | Sign-in cookies only over https. |
 
 ## HTTPS
 
-This stack serves plain HTTP on one port, which is appropriate behind an
-existing institutional proxy or on a trusted network. To terminate TLS here
-instead, put Caddy or nginx with certificates in front of `SUITE_PORT`, and set
-`SESSION_COOKIE_SECURE=true`.
+The suite is served over https on `SUITE_PORT`; plain http to it is sent on to
+https. Its certificate is signed by a certificate authority of the lab's own,
+made by `install.sh` (`scripts/make-certs.sh`). Each computer trusts that
+authority once, from `https://your-server:8080/lab-suite-ca.crt`; after that
+browsers show no warning, and copy buttons and the like work everywhere.
+A certificate from the university can be used instead. See
+[docs/HTTPS.md](docs/HTTPS.md).
 
 ## Backups
 

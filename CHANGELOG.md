@@ -8,6 +8,21 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **HTTPS.** The suite is served over https on its port, and plain http to it is sent on to https,
+  so bookmarks keep working.
+  - `install.sh` makes a certificate authority of the lab's own and a certificate for the machine
+    (`scripts/make-certs.sh`, `make certs`), and renews the machine's when its names change or it
+    nears its end.
+  - Each computer trusts the authority once, without administrator rights, from
+    `/lab-suite-ca.crt` (no sign-in needed); see docs/HTTPS.md. A university certificate can be
+    used instead.
+  - Sign-in cookies are secure by default (`SESSION_COOKIE_SECURE=true`).
+  - Copy buttons now work: browsers allow copying only on secure pages.
+
+### Fixed
+- The Copy button for a lab's registration code on the dashboard now copies over plain http too.
+
 ## [2.6.0] - 2026-10-16
 
 | Component | Version |

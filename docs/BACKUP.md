@@ -50,7 +50,7 @@ such files to make sure.
 
 ## The backup console
 
-`http://your-server:8080/backup/`, or the **Backups** card on the landing page.
+`https://your-server:8080/backup/`, or the **Backups** card on the landing page.
 
 It asks for a Plasmid Editor **administrator** account rather than adding
 another password. Everything behind that sign-in can overwrite lab data, so if

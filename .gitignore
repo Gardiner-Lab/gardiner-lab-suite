@@ -12,3 +12,7 @@ pre-install-backup/
 .install-state*
 .env.before-install-*
 .env.rolled-back-*
+
+# The https certificates (scripts/make-certs.sh): keys, never committed
+certs/
+certs-ca/

@@ -396,13 +396,34 @@ function userRow(u, data, labOptions, roleOptions, tab) {
     el('td', {}, (u.created_at || '').slice(0, 10)), actions);
 }
 
+// Browsers give pages the clipboard API only over https (or on localhost); the
+// suite is often reached over plain http by the machine's name, so copying
+// falls back to a selected text field and the copy command, which still works
+// there while handling the click.
+function copyByCommand(code) {
+  const field = document.createElement('textarea');
+  field.value = code;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.append(field);
+  field.select();
+  let copied = false;
+  try { copied = document.execCommand('copy'); } catch { copied = false; }
+  field.remove();
+  return copied;
+}
+
 async function copyText(code) {
-  try {
-    await navigator.clipboard.writeText(code);
-    toast('Code copied.');
-  } catch {
-    toast(`The code is ${code}`, 'warn');
+  if (window.isSecureContext && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast('Code copied.');
+      return;
+    } catch { /* refused: try the other way */ }
   }
+  if (copyByCommand(code)) toast('Code copied.');
+  else toast(`Copying is blocked here: the code is ${code}`, 'warn');
 }
 
 /* --- start --------------------------------------------------------------------- */

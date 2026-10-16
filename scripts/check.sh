@@ -3,7 +3,10 @@
 # every tool, and each tool behind it, running the version this release pins.
 #
 #   ./scripts/check.sh              the suite installed here (SUITE_PORT from .env)
-#   BASE=http://host:8080 ./scripts/check.sh   another one
+#   BASE=https://host:8080 ./scripts/check.sh  another one
+#
+# Over https, trusting the lab's certificate authority (certs/lab-suite-ca.crt),
+# so the certificate is checked too: it must be valid for the name used here.
 #
 # Signed out, the proxy answers every tool page itself, by sending the visitor
 # to sign in, so a page's redirect says nothing about the tool behind it. Each
@@ -20,8 +23,15 @@ env_value() {
 }
 
 SUITE_PORT="${SUITE_PORT:-$(env_value SUITE_PORT)}"
-BASE="${BASE:-http://localhost:${SUITE_PORT:-8080}}"
+BASE="${BASE:-https://localhost:${SUITE_PORT:-8080}}"
 fail=0
+
+# Every request trusts the lab's authority, or, with a university certificate
+# (certs/.provided), the computer's own trusted ones.
+CA="$ROOT/certs/lab-suite-ca.crt"
+curl() {
+  if [[ -f "$CA" && ! -f "$ROOT/certs/.provided" ]]; then command curl --cacert "$CA" "$@"; else command curl "$@"; fi
+}
 
 ok()  { printf '  \033[32mok\033[0m   %-18s %s\n' "$1" "$2"; }
 bad() { printf '  \033[31mFAIL\033[0m %-18s %s\n' "$1" "$2"; fail=1; }
@@ -75,6 +85,13 @@ tool() {
 
 echo "Checking ${BASE}"
 echo "The proxy and the sign-in:"
+code="$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/suite-health")"
+if [[ "$code" == 200 ]]; then ok "https" "the certificate is trusted for ${BASE#https://}"
+else bad "https" "no trusted https answer ($code): see docs/HTTPS.md, or run ./scripts/make-certs.sh"; fi
+answer="$(command curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "${BASE/https:/http:}/parts")"
+if [[ "${answer%% *}" == 301 && "${answer#* }" == https://* ]]; then ok "http" "plain http goes on to https"
+else bad "http" "plain http should be sent to https (got $answer)"; fi
+route "/lab-suite-ca.crt"  200 "the lab's certificate, to trust, before signing in"
 route "/suite-health"     200 "proxy"
 route "/account/login"    200 "sign-in page"
 route "/account/register" 200 "registration page"
