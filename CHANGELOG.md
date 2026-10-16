@@ -8,6 +8,23 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-10-16
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.1 |
+| Plasmid Editor | 0.4.2 |
+| Lab Notebook | 0.9.0 |
+| Seed Bank | 0.2.0 |
+| Lab Stocks | 0.1.1 |
+| Sign-in service | 2.6.1 |
+| Backup service | 2.6.1 |
+
+### Fixed
+- Copy buttons work over plain http as well as https, in every tool: the Plasmid Editor 0.4.2
+  (sequences, selections, cloning products, lab codes), the MoClo Library Tool 1.13.1 (the admin
+  page and the guide designer) and Lab Stocks 0.1.1 (primers), as on the dashboard in 2.6.0.
+
 ## [2.6.0] - 2026-10-16
 
 | Component | Version |
