@@ -13,7 +13,7 @@ and the project uses [semantic versioning](https://semver.org/).
 | Component | Version |
 | --- | --- |
 | MoClo Library Tool | 1.13.0 |
-| Plasmid Editor | 0.4.0 |
+| Plasmid Editor | 0.4.1 |
 | Lab Notebook | 0.5.0 |
 | Seed Bank | 0.2.0 |
 | Lab Stocks | 0.1.0 |
@@ -31,7 +31,7 @@ and the project uses [semantic versioning](https://semver.org/).
   - It has its own volume, `stocks-data`. Backups, the backup console and restores include it.
 
 ### Changed
-- Plasmid Editor 0.4.0: confirming a plasmid by sequencing can make its glycerol stock in Lab
+- Plasmid Editor 0.4.1: confirming a plasmid by sequencing can make its glycerol stock in Lab
   Stocks, with the lab's next number; a plasmid's stocks show beside its tags; designed primers are
   saved to the lab's primers with one click, and **Lab primers** finds the lab's primers that bind
   a sequence.

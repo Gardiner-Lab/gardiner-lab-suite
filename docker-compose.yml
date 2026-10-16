@@ -109,7 +109,7 @@ services:
       - "5000"
 
   editor:
-    image: ghcr.io/gardiner-lab/plasmid-editor:${EDITOR_VERSION:-0.4.0}
+    image: ghcr.io/gardiner-lab/plasmid-editor:${EDITOR_VERSION:-0.4.1}
     container_name: plasmid-editor
     # MoClo creates its default admin account as it starts. Waiting for it
     # means the editor always sees that account, and replaces its published
