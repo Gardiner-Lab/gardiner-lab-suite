@@ -8,6 +8,25 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.6.2] - 2026-10-16
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.1 |
+| Plasmid Editor | 0.4.3 |
+| Lab Notebook | 0.9.0 |
+| Seed Bank | 0.2.0 |
+| Lab Stocks | 0.1.2 |
+| Sign-in service | 2.6.2 |
+| Backup service | 2.6.2 |
+
+### Changed
+- Lab Stocks 0.1.2: a glycerol stock opens its plasmid in the editor with one click (🧬 Open in the
+  Plasmid Editor), and can be linked to its plasmid, or to another, afterwards. A stock whose plasmid
+  cannot be opened says why.
+- Plasmid Editor 0.4.3: the plasmids open in the editor come first in the Sequencing page's
+  reference list.
+
 ## [2.6.1] - 2026-10-16
 
 | Component | Version |
