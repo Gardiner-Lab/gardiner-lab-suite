@@ -8,6 +8,18 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-10-16
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.0 |
+| Plasmid Editor | 0.4.0 |
+| Lab Notebook | 0.5.0 |
+| Seed Bank | 0.2.0 |
+| Lab Stocks | 0.1.0 |
+| Sign-in service | 2.6.0 |
+| Backup service | 2.6.0 |
+
 ### Added
 - **Lab Stocks** at `/stocks/`, a new tool in the suite: glycerol stocks (`GL-G-0042`) and primers
   (`GL-O-0007`), numbered per lab.
@@ -17,6 +29,13 @@ and the project uses [semantic versioning](https://semver.org/).
   - Storage, labels with QR codes, photos and files, and links from the notebook.
   - A lab's stocks are shared within the lab and hidden from other labs.
   - It has its own volume, `stocks-data`. Backups, the backup console and restores include it.
+
+### Changed
+- Plasmid Editor 0.4.0: confirming a plasmid by sequencing can make its glycerol stock in Lab
+  Stocks, with the lab's next number; a plasmid's stocks show beside its tags; designed primers are
+  saved to the lab's primers with one click, and **Lab primers** finds the lab's primers that bind
+  a sequence.
+- Lab Notebook 0.5.0: link glycerol stocks and primers from Lab Stocks with `@`.
 
 ## [2.5.0] - 2026-10-15
 
