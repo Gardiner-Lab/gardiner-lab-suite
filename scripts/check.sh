@@ -84,9 +84,11 @@ gated "/parts"            "MoClo pages"
 gated "/editor/editor"    "Plasmid Editor pages"
 gated "/notebook/"        "Lab Notebook pages"
 gated "/seeds/"           "Seed Bank pages"
+gated "/stocks/"          "Lab Stocks pages"
 route "/editor"           301 "/editor goes to /editor/"
 route "/notebook"         301 "/notebook goes to /notebook/"
 route "/seeds"            301 "/seeds goes to /seeds/"
+route "/stocks"           301 "/stocks goes to /stocks/"
 
 echo "Each tool, behind the proxy:"
 tool "/account/health"  "sign-in service"   SUITE_VERSION    lab-suite-portal
@@ -94,6 +96,7 @@ tool "/health"          "MoClo Library Tool"
 tool "/editor/health"   "Plasmid Editor"    EDITOR_VERSION   plasmid-editor
 tool "/notebook/health" "Lab Notebook"      NOTEBOOK_VERSION lab-notebook
 tool "/seeds/health"    "Seed Bank"         SEEDS_VERSION    seed-bank
+tool "/stocks/health"   "Lab Stocks"        STOCKS_VERSION   lab-stocks
 tool "/backup/health"   "backup console"    SUITE_VERSION    lab-suite-backup
 
 if [[ "$fail" == 0 ]]; then

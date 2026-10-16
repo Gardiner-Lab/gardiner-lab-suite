@@ -157,7 +157,7 @@ def role_of(account) -> str:
 
 # What anyone may reach without signing in, besides this service itself: the
 # tools' health checks, for monitoring. They say "healthy" and nothing more.
-PUBLIC_PATHS = frozenset({'/health', '/editor/health', '/notebook/health', '/seeds/health', '/backup/health'})
+PUBLIC_PATHS = frozenset({'/health', '/editor/health', '/notebook/health', '/seeds/health', '/stocks/health', '/backup/health'})
 
 
 def requested_path() -> str:

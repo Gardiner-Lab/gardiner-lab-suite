@@ -132,6 +132,7 @@ restore_db "plasmid_editor.db"  "${EDITOR_DB:-/data/plasmid_editor.db}"
 restore_db "suite.db"           "${SUITE_DB:-/suite/suite.db}"
 restore_db "notebook.db"        "${NOTEBOOK_DB:-/notebook/notebook.db}"
 restore_db "seeds.db"           "${SEEDS_DB:-/seeds/seeds.db}"
+restore_db "stocks.db"          "${STOCKS_DB:-/stocks/stocks.db}"
 
 if [ -f "$ROOT/files/config.tar.gz" ]; then
     say ""

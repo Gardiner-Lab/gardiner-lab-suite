@@ -8,6 +8,16 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Lab Stocks** at `/stocks/`, a new tool in the suite: glycerol stocks (`GL-G-0042`) and primers
+  (`GL-O-0007`), numbered per lab.
+  - Each glycerol stock is linked to its plasmid in the Plasmid Editor.
+  - Primers record their sequence, with length, GC and Tm worked out, and can be searched by any
+    piece of it.
+  - Storage, labels with QR codes, photos and files, and links from the notebook.
+  - A lab's stocks are shared within the lab and hidden from other labs.
+  - It has its own volume, `stocks-data`. Backups, the backup console and restores include it.
+
 ## [2.5.0] - 2026-10-15
 
 | Component | Version |

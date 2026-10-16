@@ -65,6 +65,21 @@
       ],
       "health": "/seeds/health",
       "status": "live"
+    },
+    {
+      "id": "stocks",
+      "name": "Lab Stocks",
+      "icon": "🧪",
+      "colour": "#0891b2",
+      "href": "/stocks/",
+      "summary": "The lab's glycerol stocks and primers, numbered per lab: each stock linked to its plasmid, each primer with its sequence, Tm and where the tube is.",
+      "points": [
+        "Glycerol stocks made when a plasmid is confirmed by sequencing",
+        "Primers searchable by name or any piece of sequence",
+        "Storage locations, labels with QR codes, links from the notebook"
+      ],
+      "health": "/stocks/health",
+      "status": "live"
     }
   ],
   "admin": [
