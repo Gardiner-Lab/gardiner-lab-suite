@@ -8,6 +8,18 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-10-19
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.13.1 |
+| Plasmid Editor | 0.5.0 |
+| Lab Notebook | 0.10.0 |
+| Seed Bank | 0.3.0 |
+| Lab Stocks | 0.2.0 |
+| Sign-in service | 2.7.0 |
+| Backup service | 2.7.0 |
+
 ### Added
 - **Lab admin**, a new role: a lab lead who also adds people to the lab (a new account, or an
   existing one) and takes them out of it, on the dashboard's Labs tab. Only administrators delete
@@ -17,6 +29,17 @@ and the project uses [semantic versioning](https://semver.org/).
   a lab's lab admin adds people to it and takes them out. Registration still joins one lab.
   - Kept in suite.db's new lab_members table; existing memberships are carried over once. The
     members table keeps each person's first lab, for tools that read only one.
+
+- Plasmid Editor 0.5.0: "Cutting at most [N] time(s)" in the Enzymes panel shows only the enzymes
+  that cut that many times or fewer (formerly "Unique cutters only").
+
+### Changed
+- **Plasmids are always seen by everyone in their owner's labs**, and by other labs only once their
+  owner ticks **Public** in the editor (Plasmid Editor 0.5.0). Public is off for every existing
+  plasmid, so after upgrading, plasmids that were visible to other labs no longer are until made
+  public. The notebook, Seed Bank and Lab Stocks follow the same rule when linking plasmids.
+- Lab Notebook 0.10.0, Seed Bank 0.3.0, Lab Stocks 0.2.0: someone in several labs sees all of them;
+  in Seed Bank and Lab Stocks a picker at the top chooses which lab new records go to.
 
 ### Removed
 - The "In the pipeline" section of the landing page, and tools.json's planned list.
