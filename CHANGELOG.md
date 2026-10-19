@@ -8,6 +8,27 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-10-19
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.5.2 |
+| Lab Notebook | 0.10.0 |
+| Seed Bank | 0.3.0 |
+| Lab Stocks | 0.2.0 |
+| Sign-in service | 2.7.1 |
+| Backup service | 2.7.1 |
+
+### Changed
+- MoClo Library Tool 1.14.1: plasmid maps are drawn as the Plasmid Editor draws them. A plasmid's
+  window shows its map, and it downloads as PNG or SVG.
+- Plasmid Editor 0.5.2: a crowded circular map grows to fit, rather than cutting labels off.
+
+### Fixed
+- The Checks workflow gives its proxy check a throwaway certificate, since the real one is made on
+  the lab's server (it had failed on every push since https came in 2.6.0).
+
 ## [2.7.0] - 2026-10-19
 
 | Component | Version |
