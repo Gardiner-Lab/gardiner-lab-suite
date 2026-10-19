@@ -8,6 +8,19 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Lab admin**, a new role: a lab lead who also adds people to the lab (a new account, or an
+  existing one) and takes them out of it, on the dashboard's Labs tab. Only administrators delete
+  accounts or change roles.
+- **People can belong to several labs**, with a role in each (member, lab lead or lab admin).
+  Administrators add and remove labs per person, and set the role in each, on the Accounts tab;
+  a lab's lab admin adds people to it and takes them out. Registration still joins one lab.
+  - Kept in suite.db's new lab_members table; existing memberships are carried over once. The
+    members table keeps each person's first lab, for tools that read only one.
+
+### Removed
+- The "In the pipeline" section of the landing page, and tools.json's planned list.
+
 ## [2.6.2] - 2026-10-16
 
 | Component | Version |
