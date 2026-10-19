@@ -523,3 +523,158 @@ def test_each_sign_in_has_its_own_id_for_the_tools(portal):
     assert 'X-Suite-Session' not in check(client, '/health').headers
     sign_in(client, 'alice', 'alice-password')
     assert check(client).headers['X-Suite-Session'] != first               # a new one after signing in again
+
+
+def test_a_lab_admin_adds_people_to_their_lab_and_takes_them_out(portal):
+    module, client, moclo = portal
+    lab = gardiner(module)
+    other = module.labs.create('Smith Lab', 'boss')
+    for name in ('dave', 'erin', 'fred', 'gina', 'hana'):
+        module.directory.create(name, f'{name}-password-1', is_admin=False)
+    module.labs.set_lab('alice', lab['id'])
+    module.labs.set_role('alice', 'lab_admin', lab['id'])
+    module.labs.set_lab('dave', lab['id'])
+    module.labs.set_lab('erin', lab['id'])
+    module.labs.set_role('erin', 'lab_lead', lab['id'])
+    module.labs.set_lab('fred', other['id'])
+    module.labs.set_lab('hana', lab['id'])
+    module.labs.set_role('hana', 'lab_admin', lab['id'])
+    # Every other tool reads only whether someone leads a lab: a lab admin does.
+    conn = sqlite3.connect(module.labs.db_path())
+    assert conn.execute("SELECT role FROM members WHERE username = 'alice'").fetchone()[0] == 'lab_lead'
+
+    sign_in(client, 'alice', 'alice-password')
+    assert client.get('/api/session').get_json()['user']['role'] == 'lab_admin'
+    body = client.get('/api/admin/overview').get_json()
+    assert body['can_manage'] is False and body['can_manage_members'] is True and body['manages'] == [lab['id']]
+    assert [l['name'] for l in body['labs']] == ['Gardiner Lab']
+    assert {u['username']: u['labs'][0]['role'] for u in body['users']} == \
+        {'alice': 'lab_admin', 'dave': 'member', 'erin': 'lab_lead', 'hana': 'lab_admin'}
+    assert 'fred' in body['addable'] and 'boss' not in body['addable']
+
+    members = f"/api/lab/{lab['id']}/members"
+    # A new account, straight into the lab.
+    made = client.post(members, json={'username': 'ivan', 'password': 'ivan-password-1'})
+    assert made.status_code == 201 and made.get_json()['created'] is True
+    assert module.labs.labs_of('ivan') == [{'lab_id': lab['id'], 'lab': 'Gardiner Lab', 'role': 'member'}]
+    assert not module.directory.find('ivan')['is_admin']
+    # Someone with no lab, and someone from another lab, who stays in it too; always as a member.
+    assert client.post(members, json={'username': 'gina', 'role': 'lab_admin'}).status_code == 201
+    assert module.labs.labs_of('gina')[0]['role'] == 'member'
+    assert client.post(members, json={'username': 'fred'}).status_code == 201
+    assert [m['lab'] for m in module.labs.labs_of('fred')] == ['Smith Lab', 'Gardiner Lab']
+    assert client.post(members, json={'username': 'fred'}).status_code == 400          # in it already
+    assert client.post(members, json={'username': 'boss'}).status_code == 400
+    assert client.post(members, json={'username': 'nobody'}).status_code == 404
+    assert client.post(members, json={'username': 'jo', 'password': 'admin123'}).status_code == 400
+    # Taking out: of this lab only; members and lab leads, not lab admins, administrators, or oneself.
+    assert client.delete(f'{members}/fred').status_code == 200
+    assert [m['lab'] for m in module.labs.labs_of('fred')] == ['Smith Lab']
+    assert client.delete(f'{members}/dave').status_code == 200
+    assert module.labs.labs_of('dave') == [] and module.directory.find('dave') is not None
+    assert client.delete(f'{members}/erin').status_code == 200
+    assert client.delete(f'{members}/hana').status_code == 403
+    assert client.delete(f'{members}/alice').status_code == 400
+    assert client.delete(f'{members}/dave').status_code == 400       # not in this lab
+    # Only labs they are lab admin of; nothing an administrator alone does.
+    assert client.post(f"/api/lab/{other['id']}/members", json={'username': 'gina'}).status_code == 403
+    assert client.delete(f"/api/lab/{other['id']}/members/fred").status_code == 403
+    assert client.put(f"{members}/gina", json={'role': 'lab_lead'}).status_code == 403
+    assert client.put('/api/admin/users/gina/role', json={'role': 'lab_lead'}).status_code == 403
+    assert client.delete('/api/admin/users/gina').status_code == 403
+    assert client.post(f"/api/admin/labs/{lab['id']}/code").status_code == 403
+
+
+def test_a_lab_lead_does_not_add_or_remove_people(portal):
+    module, client, _ = portal
+    lab = gardiner(module)
+    module.directory.create('dave', 'dave-password-1', is_admin=False)
+    module.labs.set_lab('alice', lab['id'])
+    module.labs.set_role('alice', 'lab_lead', lab['id'])
+    module.labs.set_lab('dave', lab['id'])
+    sign_in(client, 'alice', 'alice-password')
+    body = client.get('/api/admin/overview').get_json()
+    assert body['can_manage_members'] is False and body['addable'] == []
+    assert client.post(f"/api/lab/{lab['id']}/members", json={'username': 'x1', 'password': 'pass-word-1'}).status_code == 403
+    assert client.delete(f"/api/lab/{lab['id']}/members/dave").status_code == 403
+
+
+def test_people_belong_to_several_labs_with_a_role_in_each(portal):
+    module, client, _ = portal
+    lab = gardiner(module)
+    other = module.labs.create('Smith Lab', 'boss')
+    third = module.labs.create('Jones Lab', 'boss')
+    module.labs.set_lab('alice', lab['id'])                     # registered here
+    sign_in(client, 'boss', 'boss-password')
+    # An administrator adds her to two more labs, leading one; and sets her role per lab.
+    assert client.post(f"/api/lab/{other['id']}/members", json={'username': 'alice', 'role': 'lab_lead'}).status_code == 201
+    assert client.post(f"/api/lab/{third['id']}/members", json={'username': 'alice'}).status_code == 201
+    assert client.put(f"/api/lab/{third['id']}/members/alice", json={'role': 'lab_admin'}).status_code == 200
+    assert {m['lab']: m['role'] for m in module.labs.labs_of('alice')} == \
+        {'Gardiner Lab': 'member', 'Smith Lab': 'lab_lead', 'Jones Lab': 'lab_admin'}
+    users = {u['username']: u for u in client.get('/api/admin/overview').get_json()['users']}
+    assert [m['lab'] for m in users['alice']['labs']] == ['Gardiner Lab', 'Smith Lab', 'Jones Lab']
+    assert users['alice']['role'] == 'lab_admin' and users['alice']['lab'] == 'Gardiner Lab'
+    assert {lab_['name']: lab_['members'] for lab_ in client.get('/api/admin/overview').get_json()['labs']} == \
+        {'Gardiner Lab': 1, 'Jones Lab': 1, 'Smith Lab': 1}
+    # Tools that read one lab see her first, with her role there.
+    conn = sqlite3.connect(module.labs.db_path())
+    assert conn.execute("SELECT lab_id, role FROM members WHERE username = 'alice'").fetchone() == (lab['id'], 'member')
+    # As lab admin of Jones Lab only, she manages that lab and no other; she sees the labs she leads.
+    client.post('/api/logout')
+    sign_in(client, 'alice', 'alice-password')
+    body = client.get('/api/admin/overview').get_json()
+    assert body['manages'] == [third['id']] and {l['name'] for l in body['labs']} == {'Smith Lab', 'Jones Lab'}
+    assert client.post(f"/api/lab/{other['id']}/members", json={'username': 'boss'}).status_code == 403
+    assert [m['lab'] for m in client.get('/api/session').get_json()['user']['labs']] == \
+        ['Gardiner Lab', 'Smith Lab', 'Jones Lab']
+    # Out of her first lab, the next one is her first; a lab with members cannot be deleted.
+    client.post('/api/logout')
+    sign_in(client, 'boss', 'boss-password')
+    assert client.delete(f"/api/admin/labs/{other['id']}").status_code == 400
+    assert client.delete(f"/api/lab/{lab['id']}/members/alice").status_code == 200
+    assert conn.execute("SELECT lab_id, role FROM members WHERE username = 'alice'").fetchone() == (other['id'], 'lab_lead')
+
+
+def test_one_lab_each_from_before_becomes_their_first(tmp_path, monkeypatch):
+    """A suite database from before several labs: its members table is carried over, once."""
+    moclo = tmp_path / 'moclo.db'
+    make_directory(moclo, [('alice', 'alice-password', False), ('boss', 'boss-password', True)])
+    suite = tmp_path / 'suite.db'
+    conn = sqlite3.connect(suite)
+    conn.executescript("""
+        CREATE TABLE labs (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, registration_code TEXT,
+                           code_updated_by TEXT, code_updated_at TIMESTAMP, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE members (username TEXT PRIMARY KEY, lab_id TEXT REFERENCES labs(id),
+                              role TEXT NOT NULL DEFAULT 'member', joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+        INSERT INTO settings VALUES ('imported_from_editor', '0'), ('default_lab', 'Gardiner Lab');
+        INSERT INTO labs (id, name) VALUES ('lab-g', 'Gardiner Lab');
+        INSERT INTO members (username, lab_id, role) VALUES ('alice', 'lab-g', 'lab_lead');
+    """)
+    conn.commit()
+    conn.close()
+    module = load(monkeypatch, moclo, tmp_path / 'missing.db', suite)
+    assert module.labs.labs_of('alice') == [{'lab_id': 'lab-g', 'lab': 'Gardiner Lab', 'role': 'lab_lead'}]
+    # Taken out of it later, she stays out: the carrying over happens once.
+    module.labs.remove('alice', 'lab-g')
+    module = load(monkeypatch, moclo, tmp_path / 'missing.db', suite)
+    assert module.labs.labs_of('alice') == []
+
+
+def test_an_administrator_makes_someone_lab_admin(portal):
+    module, client, _ = portal
+    lab = gardiner(module)
+    sign_in(client, 'boss', 'boss-password')
+    assert 'lab_admin' in client.get('/api/admin/overview').get_json()['roles']
+    assert client.put('/api/admin/users/alice/role', json={'role': 'lab_admin'}).status_code == 400   # no lab yet
+    client.put('/api/admin/users/alice/lab', json={'lab_id': lab['id']})
+    assert client.put('/api/admin/users/alice/role', json={'role': 'lab_admin'}).status_code == 200
+    assert module.labs.membership('alice')['role'] == 'lab_admin'
+    assert client.put('/api/admin/users/alice/role', json={'role': 'lab_lead'}).status_code == 200
+    assert module.labs.membership('alice')['role'] == 'lab_lead'
+    made = client.post('/api/admin/users', json={'username': 'kim', 'password': 'kim-password-1',
+                                                 'lab_id': lab['id'], 'role': 'lab_admin'})
+    assert made.status_code == 201 and module.labs.membership('kim')['role'] == 'lab_admin'
+    # An administrator manages any lab's members too.
+    assert client.delete(f"/api/lab/{lab['id']}/members/kim").status_code == 200

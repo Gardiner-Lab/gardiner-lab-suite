@@ -102,11 +102,5 @@
       "health": "/backup/health",
       "manifest": "/backup/suite-manifest.json"
     }
-  ],
-  "planned": [
-    {
-      "name": "Primer database",
-      "summary": "A shared, searchable record of the lab's oligos and what they were used for."
-    }
   ]
 }

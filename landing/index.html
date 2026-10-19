@@ -58,9 +58,6 @@
 
   .planned { margin-top: 2.5rem; }
   .planned h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: .75rem; }
-  .planned-card { background: transparent; border: 1px dashed var(--border); border-radius: .6rem; padding: 1rem 1.2rem; }
-  .planned-name { font-weight: 600; font-size: .95rem; }
-  .planned-summary { color: var(--muted); font-size: .875rem; }
 
   footer { border-top: 1px solid var(--border); background: var(--card); padding: 1.1rem 0; color: var(--muted); font-size: .825rem; }
   footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
@@ -85,10 +82,6 @@
   <section class="planned" id="adminSection" hidden>
     <h2>Administration</h2>
     <div class="grid" id="admin"></div>
-  </section>
-  <section class="planned" id="plannedSection" hidden>
-    <h2>In the pipeline</h2>
-    <div class="grid" id="planned"></div>
   </section>
 </main>
 
@@ -183,16 +176,6 @@ async function checkHealth(el) {
       document.getElementById('admin').innerHTML = admin.map(card).join('');
     }
     document.querySelectorAll('.dot[data-health]').forEach(checkHealth);
-
-    const planned = registry.planned || [];
-    if (planned.length) {
-      document.getElementById('plannedSection').hidden = false;
-      document.getElementById('planned').innerHTML = planned.map((p) => `
-        <div class="planned-card">
-          <div class="planned-name">${esc(p.name)}</div>
-          <div class="planned-summary">${esc(p.summary || '')}</div>
-        </div>`).join('');
-    }
   } catch (err) {
     target.innerHTML = `<div class="error">Could not read the tool registry (tools.json): ${esc(err.message)}</div>`;
   }

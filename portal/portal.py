@@ -146,9 +146,22 @@ def json_body() -> dict:
 
 
 def role_of(account) -> str:
+    """
+    'admin', or their highest role in any of their labs: 'lab_admin',
+    'lab_lead' or 'member'. What the dashboard shows them; in each lab, their
+    role there is what counts (labs.role_in).
+    """
     if account['is_admin']:
         return 'admin'
-    return 'lab_lead' if labs.membership(account['username'])['role'] == 'lab_lead' else 'member'
+    return max((m['role'] for m in labs.labs_of(account['username'])), key=labs.RANK.get, default='member')
+
+
+def managed_labs(account, role, at_least='lab_lead') -> set:
+    """The labs this person runs: every lab for an admin; those they lead (or, with 'lab_admin', admin)."""
+    if role == 'admin':
+        return {lab['id'] for lab in labs.all_labs()}
+    return {m['lab_id'] for m in labs.labs_of(account['username'])
+            if labs.RANK[m['role']] >= labs.RANK[at_least]}
 
 
 # ---------------------------------------------------------------------------
@@ -220,9 +233,10 @@ def session_status():
     account = signed_in_account()
     user = None
     if account is not None:
-        member = labs.membership(account['username'])
+        mine = labs.labs_of(account['username'])
         user = {'username': account['username'], 'is_admin': account['is_admin'],
-                'role': role_of(account), 'lab': member['lab'], 'must_change': must_change()}
+                'role': role_of(account), 'lab': mine[0]['lab'] if mine else None,
+                'labs': [{'lab': m['lab'], 'role': m['role']} for m in mine], 'must_change': must_change()}
     return jsonify({'authenticated': account is not None, 'user': user,
                     'registration_open': labs.registration_open(), 'version': APP_VERSION})
 
@@ -317,8 +331,10 @@ def register():
 # ---------------------------------------------------------------------------
 #
 # Administrators manage everything. Lab leads see their own lab, its members
-# and its code (to hand out), but only an administrator can create labs,
-# generate or close codes, or change anyone's lab or role.
+# and its code (to hand out). Lab admins can also add people to their own lab
+# (a new account, or one in no lab yet) and take people out of it. Only an
+# administrator can create labs, generate or close codes, delete accounts, or
+# change anyone's role.
 
 def require_lab_admin(fn):
     @wraps(fn)
@@ -329,7 +345,7 @@ def require_lab_admin(fn):
         if must_change():
             return jsonify({'error': 'Choose a new password first, under My account'}), 403
         role = role_of(account)
-        if role not in ('admin', 'lab_lead'):
+        if role not in ('admin', 'lab_admin', 'lab_lead'):
             return jsonify({'error': 'Only administrators and lab leads can manage labs'}), 403
         return fn(account, role, *args, **kwargs)
     return wrapper
@@ -387,26 +403,40 @@ def _lab_row(lab: dict) -> dict:
 @app.route('/api/admin/overview')
 @require_lab_admin
 def overview(account, role):
-    """What this person may see: everything for an admin, their own lab for a lead."""
-    members = labs.memberships()
-    own = members.get(account['username'], {}).get('lab_id')
-    all_labs = labs.all_labs()
+    """
+    What this person may see: everything for an admin; for a lab lead or lab
+    admin, the labs they lead, their members, and each member's role there.
+    """
+    led = managed_labs(account, role)
+    run = managed_labs(account, role, 'lab_admin')
+    everyone = labs.all_lab_members()
     people = []
     for person in directory.all_accounts():
-        member = members.get(person['username']) or {}
-        if role != 'admin' and (not own or member.get('lab_id') != own):
+        theirs = everyone.get(person['username'], [])
+        shown = theirs if role == 'admin' else [m for m in theirs if m['lab_id'] in led]
+        if role != 'admin' and not shown:
             continue
-        people.append({'username': person['username'], 'lab_id': member.get('lab_id'),
-                       'lab': member.get('lab'), 'created_at': person.get('created_at'),
-                       'role': 'admin' if person['is_admin']
-                       else 'lab_lead' if member.get('role') == 'lab_lead' else 'member'})
+        first = theirs[0] if theirs else {}
+        people.append({'username': person['username'], 'created_at': person.get('created_at'),
+                       'is_admin': bool(person['is_admin']),
+                       'role': 'admin' if person['is_admin'] else
+                       max((m['role'] for m in theirs), key=labs.RANK.get, default='member'),
+                       # Their first lab, as one-lab views show it.
+                       'lab_id': first.get('lab_id'), 'lab': first.get('lab'),
+                       'labs': [{'lab_id': m['lab_id'], 'lab': m['lab'], 'role': m['role']} for m in shown]})
     return jsonify({
         'me': {'username': account['username'], 'role': role},
         'can_manage': role == 'admin',
+        # Adds people to these labs and takes them out (administrators: any lab).
+        'can_manage_members': bool(run),
+        'manages': sorted(run),
         'codes_required': labs.code_required(),
-        'labs': [_lab_row(lab) for lab in all_labs if role == 'admin' or lab['id'] == own],
+        'labs': [_lab_row(lab) for lab in labs.all_labs() if role == 'admin' or lab['id'] in led],
         'users': people,
+        # Accounts a lab admin may add to their labs: anyone but administrators.
+        'addable': sorted(p['username'] for p in directory.all_accounts() if not p['is_admin']) if run else [],
         'roles': list(labs.ROLES),
+        'lab_roles': ['member', 'lab_lead', 'lab_admin'],
     })
 
 
@@ -486,12 +516,12 @@ def create_user(account):
     data = json_body() or {}
     role = data.get('role') or 'member'
     if role not in labs.ROLES:
-        return jsonify({'error': 'Choose administrator, lab lead or member'}), 400
+        return jsonify({'error': 'Choose administrator, lab admin, lab lead or member'}), 400
     lab_id = str(data.get('lab_id') or '')
     if lab_id and labs.get(lab_id) is None:
         return jsonify({'error': 'Choose one of the labs'}), 400
-    if role == 'lab_lead' and not lab_id:
-        return jsonify({'error': 'A lab lead needs a lab'}), 400
+    if role in ('lab_admin', 'lab_lead') and not lab_id:
+        return jsonify({'error': 'A lab lead or lab admin needs a lab'}), 400
     try:
         created = directory.create(str(data.get('username') or ''), str(data.get('password') or ''),
                                    is_admin=role == 'admin')
@@ -499,8 +529,8 @@ def create_user(account):
         return jsonify({'error': str(exc)}), 400
     if lab_id:
         labs.set_lab(created['username'], lab_id)
-    if role == 'lab_lead':
-        labs.set_lab_lead(created['username'], True)
+    if role in ('lab_admin', 'lab_lead'):
+        labs.set_role(created['username'], role, lab_id)
     return jsonify({'ok': True, 'username': created['username']}), 201
 
 
@@ -562,17 +592,122 @@ def set_user_role(account, username):
         return missing
     role = (json_body() or {}).get('role')
     if role not in labs.ROLES:
-        return jsonify({'error': 'Choose administrator, lab lead or member'}), 400
+        return jsonify({'error': 'Choose administrator, lab admin, lab lead or member'}), 400
     if target['username'] == account['username']:
         return jsonify({'error': 'You cannot change your own role'}), 400
     try:
-        if role == 'lab_lead':
-            labs.set_lab_lead(target['username'], True)
+        if role in ('lab_admin', 'lab_lead'):
+            labs.set_role(target['username'], role)
         directory.set_admin(target['username'], role == 'admin')
-        if role != 'lab_lead':
-            labs.set_lab_lead(target['username'], False)
+        if role not in ('lab_admin', 'lab_lead') and labs.labs_of(target['username']):
+            labs.set_role(target['username'], 'member')
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
+    return jsonify({'ok': True})
+
+
+@app.route('/api/admin/users/<username>/admin', methods=['PUT'])
+@require_admin
+def set_user_admin(account, username):
+    """Make someone an administrator, or not; their labs and roles in them stay."""
+    target, missing = _target_or_404(username)
+    if missing:
+        return missing
+    if target['username'] == account['username']:
+        return jsonify({'error': 'You cannot change your own role'}), 400
+    try:
+        directory.set_admin(target['username'], bool((json_body() or {}).get('admin')))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'ok': True})
+
+
+# ---------------------------------------------------------------------------
+# A lab's members, for its lab admin (and administrators)
+# ---------------------------------------------------------------------------
+
+def _may_manage_members(account, role, lab_id):
+    """An administrator, any lab; a lab admin, their own lab only."""
+    if labs.get(lab_id) is None:
+        return jsonify({'error': 'No such lab'}), 404
+    if role == 'admin' or labs.role_in(account['username'], lab_id) == 'lab_admin':
+        return None
+    return jsonify({'error': 'Only an administrator, or the lab\'s own lab admin, can change who is in it'}), 403
+
+
+@app.route('/api/lab/<lab_id>/members', methods=['POST'])
+@require_lab_admin
+def add_member(account, role, lab_id):
+    """
+    Add someone to a lab: a new account (username and password), or an
+    existing one (username alone), which keeps its other labs. With 'role',
+    an administrator also says their role there; a lab admin adds members.
+    """
+    refused = _may_manage_members(account, role, lab_id)
+    if refused:
+        return refused
+    data = json_body() or {}
+    username = str(data.get('username') or '').strip()
+    password = str(data.get('password') or '')
+    lab_role = str(data.get('role') or 'member') if role == 'admin' else 'member'
+    if lab_role not in labs.RANK:
+        return jsonify({'error': 'Choose lab admin, lab lead or member'}), 400
+    if password:
+        if password == MOCLO_DEFAULT_PASSWORD:
+            return jsonify({'error': 'Choose another password'}), 400
+        try:
+            created = directory.create(username, password, is_admin=False)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
+        labs.add(created['username'], lab_id, lab_role)
+        return jsonify({'ok': True, 'username': created['username'], 'created': True}), 201
+    target = directory.find(username)
+    if target is None:
+        return jsonify({'error': 'No such account: give a password as well to make a new one'}), 404
+    if target['is_admin'] and role != 'admin':
+        return jsonify({'error': 'Only an administrator adds an administrator to a lab'}), 400
+    if labs.role_in(target['username'], lab_id) is not None:
+        return jsonify({'error': f"{target['username']} is in this lab already"}), 400
+    labs.add(target['username'], lab_id, lab_role)
+    return jsonify({'ok': True, 'username': target['username'], 'created': False}), 201
+
+
+@app.route('/api/lab/<lab_id>/members/<username>', methods=['PUT'])
+@require_admin
+def set_member_role(account, lab_id, username):
+    """An administrator sets someone's role in one of their labs."""
+    target, missing = _target_or_404(username)
+    if missing:
+        return missing
+    try:
+        labs.set_role(target['username'], str((json_body() or {}).get('role') or ''), lab_id)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'ok': True})
+
+
+@app.route('/api/lab/<lab_id>/members/<username>', methods=['DELETE'])
+@require_lab_admin
+def remove_member(account, role, lab_id, username):
+    """
+    Take someone out of a lab. Their account, their own work and their other
+    labs stay; they no longer see this lab's records. A lab admin takes out
+    members and lab leads, not administrators, other lab admins, or themselves.
+    """
+    refused = _may_manage_members(account, role, lab_id)
+    if refused:
+        return refused
+    target, missing = _target_or_404(username)
+    if missing:
+        return missing
+    there = labs.role_in(target['username'], lab_id)
+    if there is None:
+        return jsonify({'error': f"{target['username']} is not in this lab"}), 400
+    if target['username'] == account['username'] and role != 'admin':
+        return jsonify({'error': 'You cannot take yourself out of the lab'}), 400
+    if role != 'admin' and (target['is_admin'] or there == 'lab_admin'):
+        return jsonify({'error': 'Only an administrator can take an administrator or a lab admin out of a lab'}), 403
+    labs.remove(target['username'], lab_id)
     return jsonify({'ok': True})
 
 

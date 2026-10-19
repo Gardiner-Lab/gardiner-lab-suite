@@ -5,6 +5,12 @@ Kept here, in the sign-in service's own database (suite.db), so that one
 registration page and one set of codes serve every tool. Each tool reads who
 is in which lab from here; none keeps a copy of its own.
 
+Someone may belong to several labs, with a role in each: member, lab lead, or
+lab admin (a lab lead who also adds people to the lab and takes them out). They
+join their first lab by registering; administrators and the lab's lab admins
+add them to more (lab_members). The older members table keeps each person's
+first lab and their role there, for tools that read only one.
+
 Every lab has its own registration code, which this service generates: someone
 joining picks their lab and gives that lab's code. A lab without a code takes
 nobody new. The very first account of an empty installation needs no code,
@@ -23,7 +29,10 @@ import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
 
-ROLES = ('admin', 'lab_lead', 'member')
+# A lab admin is a lab lead who also adds people to the lab and takes them out.
+# Stored as a lab lead with members.lab_admin set, so every tool, which reads
+# only whether someone leads a lab, gives a lab admin all a lab lead has.
+ROLES = ('admin', 'lab_admin', 'lab_lead', 'member')
 MAX_NAME_LENGTH = 100
 # Words that read well aloud, for a code that is easy to pass on.
 _WORDS = ('amber', 'basil', 'cedar', 'delta', 'ember', 'fern', 'garnet', 'hazel', 'iris',
@@ -48,11 +57,29 @@ CREATE TABLE IF NOT EXISTS members (
     role TEXT NOT NULL DEFAULT 'member',
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+-- Everyone's labs, with their role in each: 'member' or 'lab_lead', and
+-- lab_admin for a lab lead who also adds people to the lab and takes them out.
+CREATE TABLE IF NOT EXISTS lab_members (
+    username TEXT NOT NULL,
+    lab_id TEXT NOT NULL REFERENCES labs(id),
+    role TEXT NOT NULL DEFAULT 'member',
+    lab_admin INTEGER NOT NULL DEFAULT 0,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (username, lab_id)
+);
+-- Added columns are put into older databases by prepare() (see _ADDED).
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
 );
 """
+
+
+# Columns added to members after the first release: (name, declaration).
+_ADDED = [
+    # A lab lead who may also add people to the lab and take them out of it.
+    ('lab_admin', 'INTEGER NOT NULL DEFAULT 0'),
+]
 
 
 def db_path() -> Path:
@@ -95,7 +122,7 @@ def default_lab_name() -> str:
 def all_labs() -> List[dict]:
     with connect() as conn:
         return [dict(r) for r in conn.execute(
-            'SELECT labs.*, (SELECT COUNT(*) FROM members WHERE lab_id = labs.id) AS members '
+            'SELECT labs.*, (SELECT COUNT(*) FROM lab_members WHERE lab_id = labs.id) AS members '
             'FROM labs ORDER BY name COLLATE NOCASE')]
 
 
@@ -211,34 +238,119 @@ def check(lab_ref: str, code: str, anyone_registered: bool) -> dict:
 # Members
 # ---------------------------------------------------------------------------
 
-def memberships() -> Dict[str, dict]:
-    """username -> {'lab_id', 'lab', 'role'} for everyone in a lab or leading one."""
+RANK = {'member': 0, 'lab_lead': 1, 'lab_admin': 2}
+
+
+def _role(row) -> str:
+    return 'lab_admin' if row['role'] == 'lab_lead' and row['lab_admin'] else row['role']
+
+
+def all_lab_members() -> Dict[str, List[dict]]:
+    """username -> their labs, first joined first: [{'lab_id', 'lab', 'role'}]."""
     with connect() as conn:
-        return {r['username']: dict(r) for r in conn.execute(
-            'SELECT members.username, members.lab_id, members.role, labs.name AS lab '
-            'FROM members LEFT JOIN labs ON labs.id = members.lab_id')}
+        rows = conn.execute(
+            'SELECT lab_members.username, lab_members.lab_id, lab_members.role, lab_members.lab_admin, '
+            'labs.name AS lab FROM lab_members JOIN labs ON labs.id = lab_members.lab_id '
+            'ORDER BY lab_members.joined_at, lab_members.rowid').fetchall()
+    out: Dict[str, List[dict]] = {}
+    for r in rows:
+        out.setdefault(r['username'], []).append({'lab_id': r['lab_id'], 'lab': r['lab'], 'role': _role(r)})
+    return out
+
+
+def labs_of(username: str) -> List[dict]:
+    return all_lab_members().get(username, [])
+
+
+def role_in(username: str, lab_id: str) -> Optional[str]:
+    """Their role in this lab, or None when they are not in it."""
+    return next((m['role'] for m in labs_of(username) if m['lab_id'] == lab_id), None)
+
+
+def memberships() -> Dict[str, dict]:
+    """
+    username -> {'username', 'lab_id', 'lab', 'role'}: everyone's first lab and
+    their role there, as the members table keeps it for tools reading one lab.
+    """
+    return {u: {'username': u, **ms[0]} for u, ms in all_lab_members().items()}
 
 
 def membership(username: str) -> dict:
     return memberships().get(username) or {'lab_id': None, 'lab': None, 'role': 'member'}
 
 
+def _sync(conn, username: str) -> None:
+    """The members table: this person's first lab and their role there, or nothing."""
+    first = conn.execute('SELECT * FROM lab_members WHERE username = ? ORDER BY joined_at, rowid LIMIT 1',
+                         (username,)).fetchone()
+    if first is None:
+        conn.execute('DELETE FROM members WHERE username = ?', (username,))
+        return
+    conn.execute('INSERT INTO members (username, lab_id, role, lab_admin) VALUES (?, ?, ?, ?) '
+                 'ON CONFLICT(username) DO UPDATE SET lab_id = excluded.lab_id, role = excluded.role, '
+                 'lab_admin = excluded.lab_admin', (username, first['lab_id'], first['role'], first['lab_admin']))
+
+
+def add(username: str, lab_id: str, role: str = 'member') -> None:
+    """Add someone to a lab (another of theirs), with a role there. Already in it: the role changes."""
+    if get(lab_id) is None:
+        raise ValueError('Choose one of the labs')
+    if role not in RANK:
+        raise ValueError('Choose lab admin, lab lead or member')
+    with connect() as conn:
+        conn.execute('INSERT INTO lab_members (username, lab_id, role, lab_admin) VALUES (?, ?, ?, ?) '
+                     'ON CONFLICT(username, lab_id) DO UPDATE SET role = excluded.role, lab_admin = excluded.lab_admin',
+                     (username, lab_id, 'member' if role == 'member' else 'lab_lead', 1 if role == 'lab_admin' else 0))
+        _sync(conn, username)
+
+
+def remove(username: str, lab_id: str) -> None:
+    """Take someone out of one of their labs. Their account, and their other labs, stay."""
+    with connect() as conn:
+        conn.execute('DELETE FROM lab_members WHERE username = ? AND lab_id = ?', (username, lab_id))
+        _sync(conn, username)
+
+
 def set_lab(username: str, lab_id: str) -> None:
+    """Someone's only lab: on registering, or an administrator moving them, out of any others."""
     if get(lab_id) is None:
         raise ValueError('Choose one of the labs')
     with connect() as conn:
-        conn.execute('INSERT INTO members (username, lab_id) VALUES (?, ?) '
-                     'ON CONFLICT(username) DO UPDATE SET lab_id = excluded.lab_id',
-                     (username, lab_id))
+        conn.execute('DELETE FROM lab_members WHERE username = ? AND lab_id != ?', (username, lab_id))
+        conn.execute('INSERT OR IGNORE INTO lab_members (username, lab_id) VALUES (?, ?)', (username, lab_id))
+        _sync(conn, username)
+
+
+def set_role(username: str, role: str, lab_id: Optional[str] = None) -> None:
+    """
+    Someone's role in one of their labs ('lab_admin', 'lab_lead' or 'member');
+    without lab_id, in every lab they are in (as the one-lab Accounts tab did).
+    """
+    if role not in RANK:
+        raise ValueError('Choose lab admin, lab lead or member')
+    labs = [m['lab_id'] for m in labs_of(username)]
+    if lab_id is not None and lab_id not in labs:
+        raise ValueError(f'{username} is not in that lab')
+    if role != 'member' and not labs:
+        raise ValueError(f'{username} has no lab yet; give them one first')
+    with connect() as conn:
+        conn.execute('UPDATE lab_members SET role = ?, lab_admin = ? WHERE username = ?'
+                     + (' AND lab_id = ?' if lab_id else ''),
+                     ('member' if role == 'member' else 'lab_lead', 1 if role == 'lab_admin' else 0, username,
+                      *([lab_id] if lab_id else [])))
+        _sync(conn, username)
 
 
 def set_lab_lead(username: str, lead: bool) -> None:
-    if lead and not membership(username)['lab_id']:
-        raise ValueError(f'{username} has no lab yet; give them one first')
+    set_role(username, 'lab_lead' if lead else 'member')
+
+
+def leave_lab(username: str, lab_id: Optional[str] = None) -> None:
+    """Out of one lab (or, without lab_id, all of them). The account stays."""
     with connect() as conn:
-        conn.execute('INSERT INTO members (username, role) VALUES (?, ?) '
-                     'ON CONFLICT(username) DO UPDATE SET role = excluded.role',
-                     (username, 'lab_lead' if lead else 'member'))
+        conn.execute('DELETE FROM lab_members WHERE username = ?' + (' AND lab_id = ?' if lab_id else ''),
+                     (username, *([lab_id] if lab_id else [])))
+        _sync(conn, username)
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +396,9 @@ def _import_from_editor(conn: sqlite3.Connection, editor_db: Path) -> int:
         if lab_id or lead:
             conn.execute('INSERT OR IGNORE INTO members (username, lab_id, role) VALUES (?, ?, ?)',
                          (user['username'], lab_id, 'lab_lead' if lead else 'member'))
+            if lab_id:
+                conn.execute('INSERT OR IGNORE INTO lab_members (username, lab_id, role) VALUES (?, ?, ?)',
+                             (user['username'], lab_id, 'lab_lead' if lead else 'member'))
     return len(labs)
 
 
@@ -295,6 +410,16 @@ def prepare(editor_db: Path) -> None:
     db_path().parent.mkdir(parents=True, exist_ok=True)
     with connect() as conn:
         conn.executescript(SCHEMA)
+        columns = {r['name'] for r in conn.execute('PRAGMA table_info(members)')}
+        for name, decl in _ADDED:
+            if name not in columns:
+                conn.execute(f'ALTER TABLE members ADD COLUMN {name} {decl}')
+        # Once: everyone's one lab, from before people could be in several, becomes their first.
+        if _setting(conn, 'lab_members_from_members') is None:
+            conn.execute('INSERT OR IGNORE INTO lab_members (username, lab_id, role, lab_admin, joined_at) '
+                         'SELECT username, lab_id, role, lab_admin, joined_at FROM members '
+                         'WHERE lab_id IS NOT NULL AND lab_id IN (SELECT id FROM labs)')
+            conn.execute("INSERT INTO settings (key, value) VALUES ('lab_members_from_members', '1')")
         if _setting(conn, 'imported_from_editor') is None:
             count = _import_from_editor(conn, editor_db)
             conn.execute("INSERT INTO settings (key, value) VALUES ('imported_from_editor', ?)",
@@ -309,6 +434,7 @@ def prepare(editor_db: Path) -> None:
 
 
 def forget(username: str) -> None:
-    """A removed account leaves its lab."""
+    """A removed account leaves its labs."""
     with connect() as conn:
+        conn.execute('DELETE FROM lab_members WHERE username = ?', (username,))
         conn.execute('DELETE FROM members WHERE username = ?', (username,))

@@ -37,10 +37,11 @@
  *                 "section": "me" | "admin", "roles": ["admin"],
  *                 "src": "/dashboard?embed=1&tab=parts" } ] }
  *
- * "roles" limits who sees the tab (admin, lab_lead, member; absent means
+ * "roles" limits who sees the tab (admin, lab_admin, lab_lead, member; a lab
+ * admin sees what a lab lead sees; absent means
  * everyone). Hiding a tab is tidiness, not security: every tool still checks.
  */
-const ROLE_NAMES = { admin: 'Administrator', lab_lead: 'Lab lead', member: 'Member' };
+const ROLE_NAMES = { admin: 'Administrator', lab_admin: 'Lab admin', lab_lead: 'Lab lead', member: 'Member' };
 const $ = (id) => document.getElementById(id);
 let me = null;
 let tabs = [];
@@ -96,7 +97,8 @@ async function act(promise, done, tab) {
 /* --- tabs ---------------------------------------------------------------- */
 
 function allowed(roles) {
-  return !roles || !roles.length || me.role === 'admin' || roles.includes(me.role);
+  return !roles || !roles.length || me.role === 'admin' || roles.includes(me.role)
+    || (me.role === 'lab_admin' && roles.includes('lab_lead'));      // a lab admin is a lab lead and more
 }
 
 /** The tabs each tool offers, from the manifests named in /tools.json. */
@@ -210,7 +212,7 @@ const accountTab = {
 /* --- Labs ------------------------------------------------------------------ */
 
 const labsTab = {
-  id: 'labs', title: 'Labs', icon: '🏷️', section: 'admin', roles: ['admin', 'lab_lead'],
+  id: 'labs', title: 'Labs', icon: '🏷️', section: 'admin', roles: ['admin', 'lab_admin', 'lab_lead'],
   async show(panel) {
     let data;
     try { data = await api('GET', 'api/admin/overview'); } catch (err) {
@@ -246,15 +248,74 @@ const labsTab = {
             el('th', {}, 'Registration code'), el('th', {}))),
           el('tbody', {}, rows))),
         admin ? add : null),
-      admin ? '' : el('div', { class: 'card' },
-        el('h2', {}, 'Your lab\'s members'),
-        el('p', { class: 'hint' }, 'As lab lead you can open and change your lab members\' plasmids, as an administrator can.'),
-        el('div', { class: 'table-scroll' }, el('table', {},
-          el('thead', {}, el('tr', {}, el('th', {}, 'Username'), el('th', {}, 'Role'), el('th', {}, 'Joined'))),
-          el('tbody', {}, data.users.map((u) => el('tr', {}, el('td', {}, u.username),
-            el('td', {}, ROLE_NAMES[u.role]), el('td', {}, (u.created_at || '').slice(0, 10)))))))));
+      ...(admin ? [] : data.labs.map((lab) => membersCard(data, lab, this))));
   },
 };
+
+/** One of the labs someone leads: its members; where they are its lab admin, adding and removing them. */
+function membersCard(data, lab, tab) {
+  const manage = data.manages.includes(lab.id);
+  const here = (u) => (u.labs || []).find((m) => m.lab_id === lab.id);
+  const people = data.users.filter(here);
+  const removable = (u) => manage && u.username !== data.me.username && !u.is_admin && here(u).role !== 'lab_admin';
+  const row = (u) => {
+    const actions = el('td', { class: 'actions' });
+    const reset = () => actions.replaceChildren(removable(u) ? el('button', {
+      class: 'btn small secondary', type: 'button', title: 'Take them out of this lab: their account, their own work and their other labs stay',
+      onclick: () => actions.replaceChildren(el('span', { class: 'sub inline' }, `Take ${u.username} out of ${lab.name}?`),
+        el('button', { class: 'btn small danger', type: 'button',
+                       onclick: () => act(api('DELETE', `api/lab/${lab.id}/members/${encodeURIComponent(u.username)}`),
+                         `${u.username} is no longer in ${lab.name}.`, tab) }, 'Take out'),
+        el('button', { class: 'btn small secondary', type: 'button', onclick: reset }, 'Keep')),
+    }, 'Remove from lab') : null);
+    reset();
+    return el('tr', {}, el('td', {}, u.username), el('td', {}, u.is_admin ? 'Administrator' : ROLE_NAMES[here(u).role]),
+      el('td', {}, (u.created_at || '').slice(0, 10)), manage ? actions : null);
+  };
+
+  // Add someone: a new account, or an existing one (which keeps its other labs).
+  let add = null;
+  if (manage) {
+    const others = data.addable.filter((name) => !people.some((u) => u.username === name));
+    const id = (part) => `add-${lab.id}-${part}`;
+    const kind = el('select', { id: id('kind'), 'aria-label': 'Who to add' },
+      el('option', { value: 'new' }, 'A new account'),
+      others.length ? el('option', { value: 'existing' }, 'An existing account') : null);
+    const fields = el('span', { class: 'add-fields' });
+    const draw = () => fields.replaceChildren(...(kind.value === 'new' ? [
+      el('input', { id: id('user'), required: true, minlength: 3, maxlength: 32, autocomplete: 'off',
+                    placeholder: 'Username', 'aria-label': 'Username' }),
+      el('input', { id: id('password'), type: 'text', required: true, minlength: 8, autocomplete: 'off',
+                    spellcheck: 'false', placeholder: 'Starting password', 'aria-label': 'Starting password' })]
+      : [el('select', { id: id('user'), 'aria-label': 'Account' }, others.map((name) => el('option', { value: name }, name)))]));
+    kind.addEventListener('change', draw);
+    draw();
+    add = el('form', { class: 'add-row' }, kind, fields, el('button', { class: 'btn', type: 'submit' }, 'Add to lab'));
+    add.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const username = $(id('user')).value.trim();
+      const isNew = kind.value === 'new';
+      act(api('POST', `api/lab/${lab.id}/members`, isNew ? { username, password: $(id('password')).value } : { username }),
+        isNew ? `Added ${username} to ${lab.name}. Give them their password; they can change it under My account.`
+              : `${username} is now in ${lab.name} too.`, tab);
+    });
+  }
+  return el('div', { class: 'card' },
+    el('h2', {}, `${lab.name}: members`),
+    el('p', { class: 'hint' }, manage
+      ? 'As this lab\'s lab admin you add people to it and take them out, and, as its lead, you can open and change '
+        + 'its members\' plasmids and read their notebooks. Taking someone out of this lab keeps their account, their '
+        + 'own work and their other labs; only an administrator deletes accounts or changes roles.'
+      : 'As this lab\'s lead you can open and change its members\' plasmids, as an administrator can.'),
+    el('div', { class: 'table-scroll' }, el('table', {},
+      el('thead', {}, el('tr', {}, el('th', {}, 'Username'), el('th', {}, 'Role here'), el('th', {}, 'Joined'),
+        manage ? el('th', {}) : null)),
+      el('tbody', {}, people.map(row)))),
+    manage ? el('h3', {}, `Add someone to ${lab.name}`) : null,
+    manage ? el('p', { class: 'hint' }, 'A new account, for someone who has none, or an existing one: someone in '
+      + 'another lab keeps that lab too. Anyone with the lab\'s code can also register at /account/register.') : null,
+    add);
+}
 
 function codeCell(lab) {
   if (!lab.code) return el('td', {}, '—', el('span', { class: 'sub' }, 'Closed: takes nobody new'));
@@ -343,10 +404,12 @@ const usersTab = {
     panel.replaceChildren(el('div', { class: 'card' },
       el('h2', {}, 'Accounts'),
       el('p', { class: 'hint' }, 'One account per person, for every tool. Lab leads can act as administrators for '
-        + 'their own lab\'s members and plasmids, and see their lab\'s code, but cannot change codes or roles.'),
+        + 'their own lab\'s members and plasmids, and see their lab\'s code, but cannot change codes or roles. '
+        + 'Lab admins can do all that, and also add people to their lab and take them out of it. Someone can be in '
+        + 'several labs, with a role in each.'),
       el('div', { class: 'table-scroll' }, el('table', {},
-        el('thead', {}, el('tr', {}, el('th', {}, 'Username'), el('th', {}, 'Lab'), el('th', {}, 'Role'),
-          el('th', {}, 'Joined'), el('th', {}))),
+        el('thead', {}, el('tr', {}, el('th', {}, 'Username'), el('th', {}, 'Labs, and their role in each'),
+          el('th', {}, 'Administrator'), el('th', {}, 'Joined'), el('th', {}))),
         el('tbody', {}, data.users.map((u) => userRow(u, data, labOptions, roleOptions, this))))),
       el('h3', {}, 'Add an account'),
       el('p', { class: 'hint' }, 'For someone who cannot register themselves. Anyone with their lab\'s code can '
@@ -358,16 +421,25 @@ const usersTab = {
 function userRow(u, data, labOptions, roleOptions, tab) {
   const name = encodeURIComponent(u.username);
   const self = u.username === data.me.username;
-  const lab = el('select', { 'aria-label': `Lab of ${u.username}`,
-                             onchange: (e) => e.target.value && act(
-                               api('PUT', `api/admin/users/${name}/lab`, { lab_id: e.target.value }),
-                               `Moved ${u.username}.`, tab) },
-    labOptions(u.lab_id, u.lab_id ? null : 'No lab'));
-  const role = el('select', { 'aria-label': `Role of ${u.username}`, disabled: self,
-                              title: self ? 'You cannot change your own role' : null,
-                              onchange: (e) => act(api('PUT', `api/admin/users/${name}/role`, { role: e.target.value }),
-                                `${u.username} is now ${ROLE_NAMES[e.target.value].toLowerCase()}.`, tab) },
-    roleOptions(u.role));
+  const labRole = (m) => el('select', { class: 'chip-role', 'aria-label': `Role of ${u.username} in ${m.lab}`,
+                                         onchange: (e) => act(api('PUT', `api/lab/${m.lab_id}/members/${name}`, { role: e.target.value }),
+                                           `${u.username} is now ${ROLE_NAMES[e.target.value].toLowerCase()} in ${m.lab}.`, tab) },
+    data.lab_roles.map((r) => el('option', { value: r, selected: r === m.role }, ROLE_NAMES[r])));
+  const chips = (u.labs || []).map((m) => el('span', { class: 'lab-chip' }, el('strong', {}, m.lab), ' ', labRole(m),
+    el('button', { class: 'chip-x', type: 'button', title: `Take ${u.username} out of ${m.lab}`, 'aria-label': `Take ${u.username} out of ${m.lab}`,
+                   onclick: () => act(api('DELETE', `api/lab/${m.lab_id}/members/${name}`), `${u.username} is no longer in ${m.lab}.`, tab) }, '✕')));
+  const free = data.labs.filter((l) => !(u.labs || []).some((m) => m.lab_id === l.id));
+  const addLab = free.length ? el('select', { class: 'chip-add', 'aria-label': `Add ${u.username} to a lab`,
+                                              onchange: (e) => e.target.value && act(api('POST', `api/lab/${e.target.value}/members`, { username: u.username }),
+                                                `${u.username} is now in ${free.find((l) => l.id === e.target.value).name} too.`, tab) },
+    el('option', { value: '' }, (u.labs || []).length ? '＋ lab' : '＋ Add to a lab'),
+    free.map((l) => el('option', { value: l.id }, l.name))) : null;
+  const lab = el('div', { class: 'lab-chips' }, chips, addLab);
+  const role = el('input', { type: 'checkbox', checked: !!u.is_admin, disabled: self,
+                             title: self ? 'You cannot change your own role' : 'Administrators can do everything, in every lab',
+                             'aria-label': `${u.username} is an administrator`,
+                             onchange: (e) => act(api('PUT', `api/admin/users/${name}/admin`, { admin: e.target.checked }),
+                               e.target.checked ? `${u.username} is now an administrator.` : `${u.username} is no longer an administrator.`, tab) });
   const actions = el('td', { class: 'actions' });
   const reset = () => actions.replaceChildren(
     el('button', { class: 'btn small secondary', type: 'button', disabled: self,
@@ -392,7 +464,7 @@ function userRow(u, data, labOptions, roleOptions, tab) {
       el('button', { class: 'btn small secondary', type: 'button', onclick: reset }, 'Keep'));
   }
   reset();
-  return el('tr', {}, el('td', {}, u.username), el('td', {}, lab), el('td', {}, role),
+  return el('tr', {}, el('td', {}, u.username), el('td', {}, lab), el('td', { class: 'center' }, role),
     el('td', {}, (u.created_at || '').slice(0, 10)), actions);
 }
 
