@@ -31,9 +31,16 @@ jobs:
 
       - name: Proxy configuration
         run: |
+          # The real certificate is made on the lab's server (scripts/make-certs.sh)
+          # and never committed; a throwaway one lets nginx check the https setup.
+          mkdir -p "$RUNNER_TEMP/certs"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
+            -keyout "$RUNNER_TEMP/certs/suite.key" -out "$RUNNER_TEMP/certs/suite.crt" 2>/dev/null
           docker run --rm --add-host moclo:127.0.0.1 --add-host editor:127.0.0.1 \
             --add-host backup-console:127.0.0.1 --add-host portal:127.0.0.1 \
-            -v "$PWD/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27-alpine nginx -t
+            --add-host notebook:127.0.0.1 --add-host seeds:127.0.0.1 --add-host stocks:127.0.0.1 \
+            -v "$PWD/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro" \
+            -v "$RUNNER_TEMP/certs:/etc/nginx/certs:ro" nginx:1.27-alpine nginx -t
 
       - name: Every pinned image exists
         run: |
