@@ -8,6 +8,36 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-10-19
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.5.3 |
+| Lab Notebook | 0.10.1 |
+| Seed Bank | 0.3.0 |
+| Lab Stocks | 0.3.0 |
+| Sign-in service | 2.8.0 |
+| Backup service | 2.8.0 |
+
+### Added
+- Lab Stocks 0.3.0:
+  - **Chemicals**: name, CAS number (checked), room, size and safety data sheet, with links to
+    SOFOS and Chemwatch, and an Out switch for one that has run out.
+  - **Antibodies**: the lab's short code, description, primary/secondary/other, producer, source
+    animal, product number and notes about the use.
+  - **Orders**, the lab's order list. Anyone in a lab sends an order request, or uses 🛒 Add to
+    order on a chemical, primer or antibody (primers can be ticked in their list and added at
+    once). A chemical switched to Out is added by itself. The lab's **lab admins** see that lab's
+    orders only, with the number waiting on the Orders tab, and mark them ordered and received; a
+    stock that had run out is then back in stock. The list downloads as a spreadsheet.
+- Lab Notebook 0.10.1: chemicals and antibodies can be linked from notes, like other stocks.
+
+### Changed
+- Plasmid Editor 0.5.3: designed primers saved to Lab Stocks name their binding sites after their
+  codes, and Simulate PCR lists the primers on the sequence (annotated, and the lab's that bind).
+- The landing page describes Lab Stocks' chemicals, antibodies and orders.
+
 ## [2.7.1] - 2026-10-19
 
 | Component | Version |

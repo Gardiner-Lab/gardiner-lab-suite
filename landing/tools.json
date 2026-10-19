@@ -72,10 +72,11 @@
       "icon": "🧪",
       "colour": "#0891b2",
       "href": "/stocks/",
-      "summary": "The lab's glycerol stocks and primers, numbered per lab: each stock linked to its plasmid, each primer with its sequence, Tm and where the tube is.",
+      "summary": "The lab's glycerol stocks, primers, chemicals and antibodies, numbered per lab, and the lab's order list.",
       "points": [
-        "Glycerol stocks made when a plasmid is confirmed by sequencing",
-        "Primers searchable by name or any piece of sequence",
+        "Glycerol stocks made when a plasmid is confirmed by sequencing; primers searchable by any piece of sequence",
+        "Chemicals with CAS number, room and safety data sheet; antibodies with producer and product number",
+        "Orders: anyone asks, the lab admin orders; chemicals switched to Out are added by themselves",
         "Storage locations, labels with QR codes, links from the notebook"
       ],
       "health": "/stocks/health",
