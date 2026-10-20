@@ -8,6 +8,27 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.9.1] - 2026-10-20
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.5.4 |
+| Lab Notebook | 0.10.2 |
+| Seed Bank | 0.4.0 |
+| Lab Stocks | 0.4.1 |
+| Sign-in service | 2.9.1 |
+| Backup service | 2.9.1 |
+
+### Added
+- Plasmid Editor 0.5.4: digests are kept as lanes of the virtual gel for each open tab until it is
+  closed, so banding patterns can be compared side by side.
+- Lab Stocks 0.4.1: a primer's 5′ and 3′ modifications, given on its order as suppliers want them
+  (5′-[6-FAM]GTAAAACGACGGCCAGT[BHQ-1]-3′).
+
+### Fixed
+- Plasmid Editor 0.5.4: the virtual gel's ladder sizes and lane names are no longer cut off.
+
 ## [2.9.0] - 2026-10-20
 
 | Component | Version |
