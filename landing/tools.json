@@ -61,7 +61,7 @@
       "points": [
         "Lines, seed lots and every plant sown, with their pedigree",
         "Sow, harvest, cross and select; segregation tests on selection plates",
-        "Storage locations, labels with QR codes, links from the notebook"
+        "Biosafety and stock center details; storage locations, labels with QR codes, links from the notebook"
       ],
       "health": "/seeds/health",
       "status": "live"
@@ -72,12 +72,12 @@
       "icon": "🧪",
       "colour": "#0891b2",
       "href": "/stocks/",
-      "summary": "The lab's glycerol stocks, primers, chemicals and antibodies, numbered per lab, and the lab's order list.",
+      "summary": "The lab's glycerol stocks, primers, chemicals, antibodies and plant material, numbered per lab, the lab's order list, and a copy in eLabJournal.",
       "points": [
         "Glycerol stocks made when a plasmid is confirmed by sequencing; primers searchable by any piece of sequence",
         "Chemicals with CAS number, room and safety data sheet; antibodies with producer and product number",
-        "Orders: anyone asks, the lab admin orders; chemicals switched to Out are added by themselves",
-        "Storage locations, labels with QR codes, links from the notebook"
+        "Plant material in tubes, a box of them at once; orders: anyone asks, the lab admin orders",
+        "Copied to eLabJournal's inventory and storage; labels with QR codes, links from the notebook"
       ],
       "health": "/stocks/health",
       "status": "live"

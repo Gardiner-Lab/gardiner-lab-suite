@@ -8,13 +8,47 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
+## [2.9.0] - 2026-10-20
 
-- Chair groups: an administrator makes them and puts labs in them on the
-  dashboard's Labs tab (each lab in one at most); lab leads and lab admins see
-  their lab's. The labs of a chair group see each other's stocks in Lab Stocks.
-- Lab Stocks can copy glycerol stocks, plant material and Seed Bank seed lots to
-  eLabJournal (`ELAB_*` in `.env.example`, or connected per lab on the stocks page).
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.5.3 |
+| Lab Notebook | 0.10.2 |
+| Seed Bank | 0.4.0 |
+| Lab Stocks | 0.4.0 |
+| Sign-in service | 2.9.0 |
+| Backup service | 2.9.0 |
+
+### Added
+- Lab Stocks 0.4.0:
+  - **eLabJournal**: a lab admin connects the lab with *Connect to eLabJournal*, which walks them
+    through making a token in eLab, tries it, and lets them choose what is copied, to which of the
+    group's own sample types (Glycerol Stock, Plant Material, Plant Seed), and the lab's permit and
+    biosafety level. Glycerol stocks, plant material and the Seed Bank's seed lots are then copied
+    to eLab one way, into the fields those types have (nothing is added to them), and archived
+    there when used up or deleted. Nothing is made twice. Each record's page links to its sample in
+    eLab and says how it stands; one archived in eLab can be sent again.
+  - **Bring over from eLab**: eLab's glycerol stocks and plant material become records here, and
+    its seed samples lines and lots in the Seed Bank, each linked to its sample, which keeps its name.
+  - **Plant material** (GL-M): tubes kept for later processing, a box of them at once, linked from
+    the notebook.
+  - Glycerol stocks: biosafety (permit, biosafety level, host system), insert and hazard, plant and
+    yeast markers; a storage location chosen from eLab's storage, or added there, with a place in a box.
+  - Labs of a chair group see each other's stocks, read-only.
+- Seed Bank 0.4.0: a line's biosafety, stock center and genetics (permit, biosafety level, GMO type,
+  gene expression, selection marker, mutation information, construction method, stock center
+  collection and number, accession, link).
+- Lab Notebook 0.10.2: links to Lab Stocks' plant material.
+- Chair groups: an administrator makes them and puts labs in them on the dashboard's Labs tab (each
+  lab in one at most); lab leads and lab admins see their lab's.
+- `.env.example` and `docker-compose.yml`: optional `ELAB_*` settings, for connecting every lab to
+  one eLab by hand (usually each lab connects on the stocks page instead).
+
+### Upgrading
+- Lab Stocks, the Seed Bank and the sign-in service add their new tables and columns on starting.
+- A test copy of the suite connected to the same eLab group as the live one would change the same
+  samples: connect each lab from one installation only.
 
 ## [2.8.0] - 2026-10-19
 
