@@ -240,6 +240,12 @@ services:
       - EDITOR_URL=/editor
       - NOTEBOOK_URL=/notebook
       - SUITE_PUBLIC_URL=${SUITE_PUBLIC_URL:-}
+      # Copies the stocks to eLabJournal's inventory when set; see .env.example.
+      - ELAB_URL=${ELAB_URL:-}
+      - ELAB_TOKEN=${ELAB_TOKEN:-}
+      - ELAB_LABS=${ELAB_LABS:-}
+      - ELAB_KINDS=${ELAB_KINDS:-}
+      - ELAB_SAMPLE_TYPES=${ELAB_SAMPLE_TYPES:-}
     restart: unless-stopped
     expose:
       - "5006"

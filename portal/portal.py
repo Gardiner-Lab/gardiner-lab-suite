@@ -397,7 +397,8 @@ def change_password():
 def _lab_row(lab: dict) -> dict:
     return {'id': lab['id'], 'name': lab['name'], 'members': lab['members'],
             'code': lab['registration_code'], 'code_updated_by': lab['code_updated_by'],
-            'code_updated_at': lab['code_updated_at']}
+            'code_updated_at': lab['code_updated_at'],
+            'chair_group_id': lab.get('chair_group_id'), 'chair_group': lab.get('chair_group')}
 
 
 @app.route('/api/admin/overview')
@@ -432,6 +433,9 @@ def overview(account, role):
         'manages': sorted(run),
         'codes_required': labs.code_required(),
         'labs': [_lab_row(lab) for lab in labs.all_labs() if role == 'admin' or lab['id'] in led],
+        # Chair groups, chosen by administrators: all of them for an administrator, else those of their labs.
+        'chair_groups': [g for g in labs.chair_groups() if role == 'admin' or any(
+            lab['chair_group_id'] == g['id'] for lab in labs.all_labs() if lab['id'] in led)],
         'users': people,
         # Accounts a lab admin may add to their labs: anyone but administrators.
         'addable': sorted(p['username'] for p in directory.all_accounts() if not p['is_admin']) if run else [],
@@ -479,6 +483,52 @@ def delete_lab(account, lab_id):
         labs.delete(lab_id)
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
+    return jsonify({'ok': True})
+
+
+@app.route('/api/admin/labs/<lab_id>/chair-group', methods=['PUT'])
+@require_admin
+def set_lab_chair_group(account, lab_id):
+    """Puts a lab in a chair group, or in none (chair_group_id empty)."""
+    lab, missing = _lab_or_404(lab_id)
+    if missing:
+        return missing
+    try:
+        labs.set_chair_group(lab_id, str((json_body() or {}).get('chair_group_id') or '') or None)
+    except LookupError as exc:
+        return jsonify({'error': str(exc)}), 404
+    return jsonify({'lab': _lab_row(labs.get(lab_id))})
+
+
+@app.route('/api/admin/chair-groups', methods=['POST'])
+@require_admin
+def create_chair_group(account):
+    try:
+        group = labs.create_chair_group(str((json_body() or {}).get('name') or ''), account['username'])
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'chair_group': group}), 201
+
+
+@app.route('/api/admin/chair-groups/<group_id>', methods=['PATCH'])
+@require_admin
+def rename_chair_group(account, group_id):
+    try:
+        labs.rename_chair_group(group_id, str((json_body() or {}).get('name') or ''))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    except LookupError as exc:
+        return jsonify({'error': str(exc)}), 404
+    return jsonify({'ok': True})
+
+
+@app.route('/api/admin/chair-groups/<group_id>', methods=['DELETE'])
+@require_admin
+def delete_chair_group(account, group_id):
+    try:
+        labs.delete_chair_group(group_id)
+    except LookupError as exc:
+        return jsonify({'error': str(exc)}), 404
     return jsonify({'ok': True})
 
 

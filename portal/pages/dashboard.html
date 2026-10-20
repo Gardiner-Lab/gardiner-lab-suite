@@ -220,8 +220,8 @@ const labsTab = {
       return;
     }
     const admin = data.can_manage;
-    const rows = data.labs.length ? data.labs.map((lab) => labRow(lab, admin, this))
-      : [el('tr', {}, el('td', { colspan: 4, class: 'hint' },
+    const rows = data.labs.length ? data.labs.map((lab) => labRow(lab, admin, this, data.chair_groups))
+      : [el('tr', {}, el('td', { colspan: 5, class: 'hint' },
           admin ? 'No labs yet. Add one below.' : 'You are not in a lab yet.'))];
     const add = el('form', { class: 'add-row' },
       el('input', { id: 'newLab', maxlength: 100, placeholder: 'New lab, e.g. Smith Lab', 'aria-label': 'New lab name' }),
@@ -245,9 +245,10 @@ const labsTab = {
             + 'administrator can change it.'),
         el('div', { class: 'table-scroll' }, el('table', {},
           el('thead', {}, el('tr', {}, el('th', {}, 'Lab'), el('th', { class: 'num' }, 'Members'),
-            el('th', {}, 'Registration code'), el('th', {}))),
+            el('th', {}, 'Registration code'), el('th', {}, 'Chair group'), el('th', {}))),
           el('tbody', {}, rows))),
         admin ? add : null),
+      admin ? chairGroupsCard(data, this) : null,
       ...(admin ? [] : data.labs.map((lab) => membersCard(data, lab, this))));
   },
 };
@@ -324,17 +325,68 @@ function codeCell(lab) {
     el('span', { class: 'sub' }, lab.code_updated_by ? `By ${lab.code_updated_by}${when ? `, ${when}` : ''}` : ''));
 }
 
-function labRow(lab, admin, tab) {
+/** The chair group a lab is in: chosen by an administrator, from the chair groups there are. */
+function chairCell(lab, admin, tab, groups) {
+  if (!admin) {
+    return el('td', {}, lab.chair_group || '—', lab.chair_group ? el('span', { class: 'sub' },
+      `Sees the stocks of ${((groups || []).find((g) => g.id === lab.chair_group_id)?.labs || []).filter((n) => n !== lab.name).join(', ') || 'no other lab yet'}`) : null);
+  }
+  const pick = el('select', { 'aria-label': `Chair group of ${lab.name}`, onchange: () => act(
+    api('PUT', `api/admin/labs/${lab.id}/chair-group`, { chair_group_id: pick.value }),
+    pick.value ? `${lab.name} is in ${pick.selectedOptions[0].textContent}.` : `${lab.name} is in no chair group.`, tab) },
+  el('option', { value: '' }, '— none —'),
+  ...(groups || []).map((g) => el('option', { value: g.id, selected: g.id === lab.chair_group_id }, g.name)));
+  return el('td', {}, pick);
+}
+
+/** Chair groups: labs that work together, and see each other's stocks in Lab Stocks. */
+function chairGroupsCard(data, tab) {
+  const groups = data.chair_groups || [];
+  const add = el('form', { class: 'add-row' },
+    el('input', { id: 'newChair', maxlength: 100, placeholder: 'New chair group, e.g. Plant Ecophysiology', 'aria-label': 'New chair group name' }),
+    el('button', { class: 'btn', type: 'submit' }, 'Add chair group'));
+  add.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('newChair').value.trim();
+    if (!name) { toast('Give the chair group a name', 'bad'); return; }
+    act(api('POST', 'api/admin/chair-groups', { name }), `Added ${name}. Put labs in it above.`, tab);
+  });
+  const row = (g) => {
+    const name = el('td', {}, el('strong', {}, g.name), ' ', el('button', { class: 'btn small secondary', type: 'button', onclick: () => {
+      const input = el('input', { value: g.name, maxlength: 100, 'aria-label': 'New chair group name' });
+      const save = () => act(api('PATCH', `api/admin/chair-groups/${g.id}`, { name: input.value }), 'Renamed.', tab);
+      input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') save(); if (ev.key === 'Escape') tab.show(tab.panel); });
+      name.replaceChildren(input, ' ', el('button', { class: 'btn small', type: 'button', onclick: save }, 'Save'), ' ',
+        el('button', { class: 'btn small secondary', type: 'button', onclick: () => tab.show(tab.panel) }, 'Cancel'));
+      input.focus();
+    } }, 'Rename'));
+    return el('tr', {}, name, el('td', {}, g.labs.length ? g.labs.join(', ') : el('span', { class: 'hint' }, 'No labs yet')),
+      el('td', { class: 'actions' }, el('button', { class: 'btn small secondary', type: 'button', 'aria-label': `Remove ${g.name}`,
+        title: 'Remove this chair group: its labs stay, in none',
+        onclick: () => act(api('DELETE', `api/admin/chair-groups/${g.id}`), `Removed ${g.name}; its labs are in none now.`, tab) }, '✕')));
+  };
+  return el('div', { class: 'card' },
+    el('h2', {}, 'Chair groups'),
+    el('p', { class: 'hint' }, 'Labs that work together, a chair or a department. The labs of a chair group see each '
+      + 'other\'s stocks in Lab Stocks (and change only their own). Only an administrator chooses which labs are in '
+      + 'which: each lab is in one at most, chosen in the table above.'),
+    el('div', { class: 'table-scroll' }, el('table', {},
+      el('thead', {}, el('tr', {}, el('th', {}, 'Chair group'), el('th', {}, 'Labs'), el('th', {}))),
+      el('tbody', {}, groups.length ? groups.map(row) : [el('tr', {}, el('td', { colspan: 3, class: 'hint' }, 'No chair groups yet. Add one below.'))]))),
+    add);
+}
+
+function labRow(lab, admin, tab, groups) {
   const copy = lab.code
     ? el('button', { class: 'btn small secondary', type: 'button', onclick: () => copyText(lab.code) }, 'Copy')
     : null;
   if (!admin) {
     return el('tr', {}, el('td', {}, lab.name), el('td', { class: 'num' }, String(lab.members)),
-      codeCell(lab), el('td', { class: 'actions' }, copy));
+      codeCell(lab), chairCell(lab, false, tab, groups), el('td', { class: 'actions' }, copy));
   }
   const name = el('td', {}, el('strong', {}, lab.name), ' ',
     el('button', { class: 'btn small secondary', type: 'button', onclick: () => renameLab(lab, name, tab) }, 'Rename'));
-  return el('tr', {}, name, el('td', { class: 'num' }, String(lab.members)), codeCell(lab),
+  return el('tr', {}, name, el('td', { class: 'num' }, String(lab.members)), codeCell(lab), chairCell(lab, true, tab, groups),
     el('td', { class: 'actions' }, copy,
       el('button', { class: 'btn small', type: 'button',
                      onclick: () => act(api('POST', `api/admin/labs/${lab.id}/code`),

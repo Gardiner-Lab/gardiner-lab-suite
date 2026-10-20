@@ -16,6 +16,10 @@ joining picks their lab and gives that lab's code. A lab without a code takes
 nobody new. The very first account of an empty installation needs no code,
 since there is no administrator yet to hand one out.
 
+Labs can be put in a chair group (a university chair, a department: labs that
+work together) by an administrator; the labs of a chair group see each other's
+stocks in Lab Stocks. A lab is in one at most.
+
 Codes are stored readable rather than hashed, because administrators and lab
 leads need to see them to hand them out. They are a gate against strangers,
 not passwords: everyone who registers still chooses their own.
@@ -47,6 +51,14 @@ CREATE TABLE IF NOT EXISTS labs (
     registration_code TEXT,
     code_updated_by TEXT,
     code_updated_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    -- and chair_group_id (see _LAB_ADDED)
+);
+-- Labs that work together, and see each other's stocks: chosen by an administrator.
+CREATE TABLE IF NOT EXISTS chair_groups (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_by TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 -- Who is in which lab, and who leads it. By username, the directory's key.
@@ -80,6 +92,8 @@ _ADDED = [
     # A lab lead who may also add people to the lab and take them out of it.
     ('lab_admin', 'INTEGER NOT NULL DEFAULT 0'),
 ]
+# And to labs: the chair group a lab is in, if any.
+_LAB_ADDED = [('chair_group_id', 'TEXT REFERENCES chair_groups(id)')]
 
 
 def db_path() -> Path:
@@ -122,8 +136,8 @@ def default_lab_name() -> str:
 def all_labs() -> List[dict]:
     with connect() as conn:
         return [dict(r) for r in conn.execute(
-            'SELECT labs.*, (SELECT COUNT(*) FROM lab_members WHERE lab_id = labs.id) AS members '
-            'FROM labs ORDER BY name COLLATE NOCASE')]
+            'SELECT labs.*, cg.name AS chair_group, (SELECT COUNT(*) FROM lab_members WHERE lab_id = labs.id) AS members '
+            'FROM labs LEFT JOIN chair_groups cg ON cg.id = labs.chair_group_id ORDER BY labs.name COLLATE NOCASE')]
 
 
 def get(lab_id: str) -> Optional[dict]:
@@ -159,6 +173,65 @@ def create(name: str, by: str) -> dict:
         conn.execute('INSERT INTO labs (id, name) VALUES (?, ?)', (lab_id, name))
     new_code(lab_id, by)
     return get(lab_id)
+
+
+# ---------------------------------------------------------------------------
+# Chair groups
+# ---------------------------------------------------------------------------
+
+def chair_groups() -> List[dict]:
+    """Every chair group, with its labs (by name)."""
+    with connect() as conn:
+        groups = [dict(r) for r in conn.execute('SELECT * FROM chair_groups ORDER BY name COLLATE NOCASE')]
+        for g in groups:
+            g['labs'] = [r['name'] for r in conn.execute(
+                'SELECT name FROM labs WHERE chair_group_id = ? ORDER BY name COLLATE NOCASE', (g['id'],))]
+    return groups
+
+
+def _chair_name(name: str, other_than: Optional[str] = None) -> str:
+    name = _clean(name)
+    if not name:
+        raise ValueError('Give the chair group a name')
+    if len(name) > MAX_NAME_LENGTH:
+        raise ValueError(f'A chair group name must be at most {MAX_NAME_LENGTH} characters')
+    with connect() as conn:
+        taken = conn.execute('SELECT id FROM chair_groups WHERE name = ? COLLATE NOCASE', (name,)).fetchone()
+    if taken and taken['id'] != other_than:
+        raise ValueError(f'There is already a chair group called "{name}"')
+    return name
+
+
+def create_chair_group(name: str, by: str) -> dict:
+    name = _chair_name(name)
+    group_id = str(uuid.uuid4())
+    with connect() as conn:
+        conn.execute('INSERT INTO chair_groups (id, name, created_by) VALUES (?, ?, ?)', (group_id, name, by))
+    return next(g for g in chair_groups() if g['id'] == group_id)
+
+
+def rename_chair_group(group_id: str, name: str) -> None:
+    name = _chair_name(name, group_id)
+    with connect() as conn:
+        if conn.execute('UPDATE chair_groups SET name = ? WHERE id = ?', (name, group_id)).rowcount == 0:
+            raise LookupError('No such chair group')
+
+
+def delete_chair_group(group_id: str) -> None:
+    """The chair group goes; its labs stay, in none."""
+    with connect() as conn:
+        conn.execute('UPDATE labs SET chair_group_id = NULL WHERE chair_group_id = ?', (group_id,))
+        if conn.execute('DELETE FROM chair_groups WHERE id = ?', (group_id,)).rowcount == 0:
+            raise LookupError('No such chair group')
+
+
+def set_chair_group(lab_id: str, group_id: Optional[str]) -> None:
+    """Puts the lab in this chair group, or (None) in none."""
+    with connect() as conn:
+        if group_id and not conn.execute('SELECT 1 FROM chair_groups WHERE id = ?', (group_id,)).fetchone():
+            raise LookupError('No such chair group')
+        if conn.execute('UPDATE labs SET chair_group_id = ? WHERE id = ?', (group_id or None, lab_id)).rowcount == 0:
+            raise LookupError('No such lab')
 
 
 def ensure(name: str, by: str) -> Optional[dict]:
@@ -414,6 +487,10 @@ def prepare(editor_db: Path) -> None:
         for name, decl in _ADDED:
             if name not in columns:
                 conn.execute(f'ALTER TABLE members ADD COLUMN {name} {decl}')
+        columns = {r['name'] for r in conn.execute('PRAGMA table_info(labs)')}
+        for name, decl in _LAB_ADDED:
+            if name not in columns:
+                conn.execute(f'ALTER TABLE labs ADD COLUMN {name} {decl}')
         # Once: everyone's one lab, from before people could be in several, becomes their first.
         if _setting(conn, 'lab_members_from_members') is None:
             conn.execute('INSERT OR IGNORE INTO lab_members (username, lab_id, role, lab_admin, joined_at) '

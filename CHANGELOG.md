@@ -8,6 +8,14 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Chair groups: an administrator makes them and puts labs in them on the
+  dashboard's Labs tab (each lab in one at most); lab leads and lab admins see
+  their lab's. The labs of a chair group see each other's stocks in Lab Stocks.
+- Lab Stocks can copy glycerol stocks, plant material and Seed Bank seed lots to
+  eLabJournal (`ELAB_*` in `.env.example`, or connected per lab on the stocks page).
+
 ## [2.8.0] - 2026-10-19
 
 | Component | Version |

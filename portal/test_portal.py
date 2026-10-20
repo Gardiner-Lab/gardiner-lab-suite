@@ -357,6 +357,61 @@ def test_an_administrator_manages_labs_and_codes(portal):
     assert client.delete(f'/api/admin/labs/{lab["id"]}').status_code == 200
 
 
+def test_an_administrator_puts_labs_in_chair_groups(portal):
+    module, client, _ = portal
+    lab = gardiner(module)
+    module.labs.set_lab('alice', lab['id'])
+    module.labs.set_role('alice', 'lab_admin', lab['id'])
+    # Only an administrator: a lab admin sees their lab's chair group, and changes nothing.
+    sign_in(client, 'alice', 'alice-password')
+    assert client.post('/api/admin/chair-groups', json={'name': 'Plant Biology'}).status_code == 403
+    assert client.put(f'/api/admin/labs/{lab["id"]}/chair-group', json={'chair_group_id': 'x'}).status_code == 403
+    client.post('/api/logout')
+    sign_in(client, 'boss', 'boss-password')
+    assert client.post('/api/admin/chair-groups', json={'name': ' '}).status_code == 400
+    group = client.post('/api/admin/chair-groups', json={'name': ' Plant   Biology '}).get_json()['chair_group']
+    assert group['name'] == 'Plant Biology' and group['labs'] == []
+    assert client.post('/api/admin/chair-groups', json={'name': 'plant biology'}).status_code == 400
+    smith = client.post('/api/admin/labs', json={'name': 'Smith Lab'}).get_json()['lab']
+    jones = client.post('/api/admin/labs', json={'name': 'Jones Lab'}).get_json()['lab']
+    for one in (lab, smith):
+        assert client.put(f'/api/admin/labs/{one["id"]}/chair-group',
+                          json={'chair_group_id': group['id']}).get_json()['lab']['chair_group'] == 'Plant Biology'
+    assert client.put(f'/api/admin/labs/{jones["id"]}/chair-group', json={'chair_group_id': 'nope'}).status_code == 404
+    seen = client.get('/api/admin/overview').get_json()
+    assert [g['labs'] for g in seen['chair_groups']] == [['Gardiner Lab', 'Smith Lab']]
+    assert {x['name']: x['chair_group'] for x in seen['labs']} == {'Gardiner Lab': 'Plant Biology', 'Jones Lab': None,
+                                                                    'Smith Lab': 'Plant Biology'}
+    assert client.patch(f'/api/admin/chair-groups/{group["id"]}', json={'name': 'Plant Ecophysiology'}).status_code == 200
+    # Out of it again: none.
+    client.put(f'/api/admin/labs/{smith["id"]}/chair-group', json={'chair_group_id': ''})
+    client.post('/api/logout')
+    sign_in(client, 'alice', 'alice-password')
+    mine = client.get('/api/admin/overview').get_json()
+    assert mine['labs'][0]['chair_group'] == 'Plant Ecophysiology'
+    assert [g['labs'] for g in mine['chair_groups']] == [['Gardiner Lab']]
+    client.post('/api/logout')
+    sign_in(client, 'boss', 'boss-password')
+    # Removed: its labs stay, in none.
+    assert client.delete(f'/api/admin/chair-groups/{group["id"]}').status_code == 200
+    assert gardiner(module)['chair_group_id'] is None
+    assert client.delete(f'/api/admin/chair-groups/{group["id"]}').status_code == 404
+
+
+def test_a_suite_database_from_before_gets_chair_groups(tmp_path, monkeypatch):
+    make_directory(tmp_path / 'moclo.db', [('boss', 'boss-password', True)])
+    conn = sqlite3.connect(tmp_path / 'suite.db')
+    conn.executescript("""
+        CREATE TABLE labs (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, registration_code TEXT,
+                           code_updated_by TEXT, code_updated_at TIMESTAMP, created_at TIMESTAMP);
+        INSERT INTO labs (id, name) VALUES ('lab-g', 'Gardiner Lab');
+    """)
+    conn.commit()
+    conn.close()
+    module = load(monkeypatch, tmp_path / 'moclo.db', tmp_path / 'missing.db', tmp_path / 'suite.db')
+    assert module.labs.get('lab-g')['chair_group_id'] is None and module.labs.chair_groups() == []
+
+
 def test_a_lab_with_members_cannot_be_removed(portal):
     module, client, _ = portal
     lab = gardiner(module)
