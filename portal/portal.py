@@ -47,7 +47,7 @@ from flask import Flask, jsonify, make_response, redirect, request, send_file, s
 import directory
 import labs
 
-APP_VERSION = '2.9.2'
+APP_VERSION = '2.9.3'
 
 # The first administrator's password on a new installation (MoClo creates
 # 'admin' with it). It is published, so it may be used once only: whoever

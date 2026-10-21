@@ -8,6 +8,22 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.9.3] - 2026-10-21
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.5.4 |
+| Lab Notebook | 0.10.2 |
+| Seed Bank | 0.4.0 |
+| Lab Stocks | 0.4.3 |
+| Sign-in service | 2.9.3 |
+| Backup service | 2.9.3 |
+
+### Changed
+- Lab Stocks 0.4.3: bringing samples over from eLab, everyone owning samples there stays listed,
+  also when all of theirs are here already (greyed, with nothing to tick).
+
 ## [2.9.2] - 2026-10-20
 
 | Component | Version |
