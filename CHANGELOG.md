@@ -8,6 +8,23 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.9.4] - 2026-10-21
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.5.4 |
+| Lab Notebook | 0.10.2 |
+| Seed Bank | 0.4.1 |
+| Lab Stocks | 0.4.3 |
+| Sign-in service | 2.9.4 |
+| Backup service | 2.9.4 |
+
+### Added
+- Seed Bank 0.4.1: seed lots in eLabJournal, as Lab Stocks copies them there. Above the lists, how
+  many of the lab's are sent, waiting, archived in eLab or failed, with Send now; on a lot's page,
+  its sample in eLab and how it stands, with sending it now or again.
+
 ## [2.9.3] - 2026-10-21
 
 | Component | Version |

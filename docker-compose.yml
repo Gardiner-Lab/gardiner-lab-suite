@@ -57,7 +57,7 @@ services:
   # users table) and keeps the labs, their registration codes and who is in
   # which lab in suite-data, which the tools read.
   portal:
-    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.9.3}
+    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.9.4}
     container_name: lab-portal
     # New accounts go into MoClo's directory, so it must exist first.
     depends_on:
@@ -190,7 +190,7 @@ services:
   # account directory and labs, the editor's plasmids and the notebook's links,
   # and writes only to its own volume.
   seeds:
-    image: ghcr.io/gardiner-lab/seed-bank:${SEEDS_VERSION:-0.4.0}
+    image: ghcr.io/gardiner-lab/seed-bank:${SEEDS_VERSION:-0.4.1}
     container_name: lab-seeds
     depends_on:
       moclo:
@@ -208,6 +208,8 @@ services:
       - SUITE_LOGOUT_URL=/account/logout
       - EDITOR_URL=/editor
       - NOTEBOOK_URL=/notebook
+      # Lab Stocks, which copies the seed lots to eLabJournal.
+      - STOCKS_URL=/stocks
       # Where phones reach the suite, for the QR codes on labels, e.g.
       # https://UU115629:8080. Unset: the address the label page is opened at.
       - SUITE_PUBLIC_URL=${SUITE_PUBLIC_URL:-}
@@ -251,7 +253,7 @@ services:
       - "5006"
 
   backup:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.9.3}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.9.4}
     container_name: lab-backup
     volumes:
       # Read-only: the backup never needs to change the live data.
@@ -285,7 +287,7 @@ services:
   # access to the volumes in order to restore, which is why the nightly job is
   # a separate service that does not.
   backup-console:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.9.3}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.9.4}
     container_name: lab-backup-console
     command: ["api"]
     volumes:
@@ -319,7 +321,7 @@ services:
   # deliberately does not have. Kept behind a profile so it never starts with
   # the stack; `make restore` is the way in.
   restore:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.9.3}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.9.4}
     container_name: lab-restore
     profiles: ["restore"]
     volumes:
