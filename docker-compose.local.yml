@@ -7,7 +7,7 @@
 #   SECRET_KEY=dev MOCLO_SECRET_KEY=dev \
 #     docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 #
-# MOCLO_SRC and EDITOR_SRC point at the checkouts (default: sibling directories).
+# MOCLO_SRC, EDITOR_SRC and NOTEBOOK_SRC point at the checkouts (default: sibling directories).
 
 services:
   portal:
@@ -25,6 +25,12 @@ services:
     build:
       context: ${EDITOR_SRC:-../plasmid-editor}
     image: plasmid-editor:local
+    pull_policy: never
+
+  notebook:
+    build:
+      context: ${NOTEBOOK_SRC:-../lab-notebook}
+    image: lab-notebook:local
     pull_policy: never
 
   backup:
