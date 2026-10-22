@@ -8,6 +8,29 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.9.5] - 2026-10-22
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.5.5 |
+| Lab Notebook | 0.10.2 |
+| Seed Bank | 0.4.1 |
+| Lab Stocks | 0.4.3 |
+| Sign-in service | 2.9.5 |
+| Backup service | 2.9.5 |
+
+### Added
+- Plasmid Editor 0.5.5: a sequencing read's alignment shows its own "Read extent" - the read's full
+  length, trimmed, aligned and unmatched stretches - so a large insertion or a wrong reference is
+  visible even when it isn't stitched into the alignment.
+
+### Fixed
+- Plasmid Editor 0.5.5: a read with a large, unexpected insertion only showed the flank either side of
+  it that aligned better, with the other flank and the insertion itself silently dropped. Both flanks
+  are now found and stitched together, with the insertion held in the alignment as read bases the
+  reference does not have.
+
 ## [2.9.4] - 2026-10-21
 
 | Component | Version |
