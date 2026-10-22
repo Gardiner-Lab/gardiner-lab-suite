@@ -7,7 +7,8 @@
 #   SECRET_KEY=dev MOCLO_SECRET_KEY=dev \
 #     docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 #
-# MOCLO_SRC, EDITOR_SRC and NOTEBOOK_SRC point at the checkouts (default: sibling directories).
+# MOCLO_SRC, EDITOR_SRC, NOTEBOOK_SRC, SEEDS_SRC and STOCKS_SRC point at the
+# checkouts (default: sibling directories).
 
 services:
   portal:
@@ -31,6 +32,18 @@ services:
     build:
       context: ${NOTEBOOK_SRC:-../lab-notebook}
     image: lab-notebook:local
+    pull_policy: never
+
+  seeds:
+    build:
+      context: ${SEEDS_SRC:-../seed-bank}
+    image: seed-bank:local
+    pull_policy: never
+
+  stocks:
+    build:
+      context: ${STOCKS_SRC:-../lab-stocks}
+    image: lab-stocks:local
     pull_policy: never
 
   backup:
