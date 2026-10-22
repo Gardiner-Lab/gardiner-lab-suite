@@ -8,6 +8,35 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.9.6] - 2026-10-22
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.6.1 |
+| Lab Notebook | 0.10.2 |
+| Seed Bank | 0.4.1 |
+| Lab Stocks | 0.4.3 |
+| Sign-in service | 2.9.6 |
+| Backup service | 2.9.6 |
+
+### Changed
+- Plasmid Editor 0.6.1: sequencing alignments can be read at a glance. Every read is drawn on one
+  map of the plasmid, under its features, with a mark at each difference (red mismatch, violet
+  insertion, orange deletion; hollow on a low-quality call), the parts of it that did not align
+  reaching out from its ends, and below them what the reads cover together and which features no
+  read covers completely. A read opens with its verdict in a sentence, each difference names its
+  feature and the read's quality there, the alignment's rows are labelled with a coloured strip
+  showing where read and reference agree, and the chromatogram scrolls to whichever difference or
+  base is chosen.
+- `docker-compose.local.yml` also builds Seed Bank and Lab Stocks from local checkouts
+  (`SEEDS_SRC`, `STOCKS_SRC`), like the other tools.
+
+### Fixed
+- Plasmid Editor 0.6.1: a read's identity ignored the bases it has extra or lacks, so a read with a
+  60 bp insertion was reported as "100% identity". It now counts them; whether a read maps still
+  rests on the bases that pair up. Existing reads show the new figure after **Re-align all**.
+
 ## [2.9.5] - 2026-10-22
 
 | Component | Version |
