@@ -404,27 +404,52 @@ const labsTab = {
             el('th', {}, 'Registration code'), el('th', {}, 'Chair group'), el('th', {}))),
           el('tbody', {}, rows))),
         admin ? add : null),
-      admin ? chairGroupsCard(data, this) : null,
+      admin ? chairGroupsCard(data, this) : '',
       ...(admin ? [] : data.labs.map((lab) => membersCard(data, lab, this))));
   },
 };
 
 /** One of the labs someone leads: its members; where they are its lab admin, adding and removing them. */
+/* --- people who have left ---------------------------------------------------- */
+
+const ARCHIVE_HINT = 'They have left: their account, labs and work stay - notebook, plasmids, stocks, seeds, parts - '
+  + 'for their labs\u2019 leads and lab admins. They no longer sign in, are left out of the tools\u2019 lists of people, '
+  + 'and their bookings ahead are freed. It can be undone.';
+
+/** An Archive button that asks first, in its cell. */
+function archiveButton(u, cell, reset, tab) {
+  return el('button', { class: 'btn small secondary', type: 'button', title: ARCHIVE_HINT, onclick: () => cell.replaceChildren(
+    el('span', { class: 'sub inline' }, `Archive ${u.username}? Their work stays for the lab.`),
+    el('button', { class: 'btn small danger', type: 'button',
+                   onclick: () => act(api('POST', `api/people/${encodeURIComponent(u.username)}/archive`),
+                     `${u.username} is archived. Their work stays for the lab.`, tab) }, 'Archive'),
+    el('button', { class: 'btn small secondary', type: 'button', onclick: reset }, 'Keep')) }, 'Archive');
+}
+
+function restoreButton(u, tab) {
+  return u.can_archive ? el('button', { class: 'btn small secondary', type: 'button', title: 'They sign in again, as before',
+    onclick: () => act(api('DELETE', `api/people/${encodeURIComponent(u.username)}/archive`), `${u.username} is back.`, tab) }, 'Bring back') : null;
+}
+
+const leftOn = (u) => `${(u.archived.archived_at || '').slice(0, 10)}${u.archived.archived_by ? ` by ${u.archived.archived_by}` : ''}`;
+
 function membersCard(data, lab, tab) {
   const manage = data.manages.includes(lab.id);
   const here = (u) => (u.labs || []).find((m) => m.lab_id === lab.id);
-  const people = data.users.filter(here);
+  const everyoneHere = data.users.filter(here);
+  const people = everyoneHere.filter((u) => !u.archived);
+  const left = everyoneHere.filter((u) => u.archived);
   const removable = (u) => manage && u.username !== data.me.username && !u.is_admin && here(u).role !== 'lab_admin';
   const row = (u) => {
     const actions = el('td', { class: 'actions' });
-    const reset = () => actions.replaceChildren(removable(u) ? el('button', {
+    const reset = () => actions.replaceChildren(u.can_archive ? archiveButton(u, actions, () => reset(), tab) : '', ' ', removable(u) ? el('button', {
       class: 'btn small secondary', type: 'button', title: 'Take them out of this lab: their account, their own work and their other labs stay',
       onclick: () => actions.replaceChildren(el('span', { class: 'sub inline' }, `Take ${u.username} out of ${lab.name}?`),
         el('button', { class: 'btn small danger', type: 'button',
                        onclick: () => act(api('DELETE', `api/lab/${lab.id}/members/${encodeURIComponent(u.username)}`),
                          `${u.username} is no longer in ${lab.name}.`, tab) }, 'Take out'),
         el('button', { class: 'btn small secondary', type: 'button', onclick: reset }, 'Keep')),
-    }, 'Remove from lab') : null);
+    }, 'Remove from lab') : '');
     reset();
     return el('tr', {}, el('td', {}, u.username), el('td', {}, u.is_admin ? 'Administrator' : ROLE_NAMES[here(u).role]),
       el('td', {}, (u.created_at || '').slice(0, 10)), manage ? actions : null);
@@ -468,6 +493,13 @@ function membersCard(data, lab, tab) {
       el('thead', {}, el('tr', {}, el('th', {}, 'Username'), el('th', {}, 'Role here'), el('th', {}, 'Joined'),
         manage ? el('th', {}) : null)),
       el('tbody', {}, people.map(row)))),
+    left.length ? el('details', { class: 'left-list' },
+      el('summary', {}, `Left the lab (${left.length})`),
+      el('p', { class: 'hint' }, 'Archived: their work stays here for the lab\u2019s leads and lab admins, in every tool.'),
+      el('div', { class: 'table-scroll' }, el('table', {},
+        el('thead', {}, el('tr', {}, el('th', {}, 'Username'), el('th', {}, 'Role here'), el('th', {}, 'Archived'), el('th', {}))),
+        el('tbody', {}, left.map((u) => el('tr', { class: 'archived' }, el('td', {}, u.username),
+          el('td', {}, ROLE_NAMES[here(u).role]), el('td', {}, leftOn(u)), el('td', { class: 'actions' }, restoreButton(u, tab)))))))) : null,
     manage ? el('h3', {}, `Add someone to ${lab.name}`) : null,
     manage ? el('p', { class: 'hint' }, 'A new account, for someone who has none, or an existing one: someone in '
       + 'another lab keeps that lab too. Anyone with the lab\'s code can also register at /account/register.') : null,
@@ -536,13 +568,15 @@ function labRow(lab, admin, tab, groups) {
   const copy = lab.code
     ? el('button', { class: 'btn small secondary', type: 'button', onclick: () => copyText(lab.code) }, 'Copy')
     : null;
+  const count = el('td', { class: 'num', title: lab.archived_members ? `And ${lab.archived_members} who left (archived)` : null },
+    String(lab.members), lab.archived_members ? el('span', { class: 'sub' }, `+${lab.archived_members} left`) : null);
   if (!admin) {
-    return el('tr', {}, el('td', {}, lab.name), el('td', { class: 'num' }, String(lab.members)),
+    return el('tr', {}, el('td', {}, lab.name), count,
       codeCell(lab), chairCell(lab, false, tab, groups), el('td', { class: 'actions' }, copy));
   }
   const name = el('td', {}, el('strong', {}, lab.name), ' ',
     el('button', { class: 'btn small secondary', type: 'button', onclick: () => renameLab(lab, name, tab) }, 'Rename'));
-  return el('tr', {}, name, el('td', { class: 'num' }, String(lab.members)), codeCell(lab), chairCell(lab, true, tab, groups),
+  return el('tr', {}, name, count, codeCell(lab), chairCell(lab, true, tab, groups),
     el('td', { class: 'actions' }, copy,
       el('button', { class: 'btn small', type: 'button',
                      onclick: () => act(api('POST', `api/admin/labs/${lab.id}/code`),
@@ -552,8 +586,9 @@ function labRow(lab, admin, tab, groups) {
                      title: 'Remove the code, so nobody new can join this lab',
                      onclick: () => act(api('DELETE', `api/admin/labs/${lab.id}/code`),
                        `${lab.name} is closed to new members.`, tab) }, 'Close'),
-      el('button', { class: 'btn small secondary', type: 'button', disabled: lab.members > 0,
-                     title: lab.members ? 'Only a lab without members can be removed' : 'Remove this lab',
+      el('button', { class: 'btn small secondary', type: 'button', disabled: lab.members > 0 || lab.archived_members > 0,
+                     title: lab.members ? 'Only a lab without members can be removed'
+                       : lab.archived_members ? 'People who left are archived in it: it keeps their work for the lab' : 'Remove this lab',
                      'aria-label': `Remove ${lab.name}`,
                      onclick: () => act(api('DELETE', `api/admin/labs/${lab.id}`), `Removed ${lab.name}.`, tab) }, '✕')));
 }
@@ -652,8 +687,10 @@ function userRow(u, data, labOptions, roleOptions, tab) {
   const reset = () => actions.replaceChildren(
     el('button', { class: 'btn small secondary', type: 'button', disabled: self,
                    title: self ? 'Change your own under My account' : null, onclick: setPassword }, 'Set password'),
+    (u.archived ? restoreButton(u, tab) : (u.can_archive ? archiveButton(u, actions, reset, tab) : null)) || '',
     el('button', { class: 'btn small secondary', type: 'button', disabled: self,
-                   title: self ? 'You cannot remove your own account' : null, onclick: remove }, 'Remove'));
+                   title: self ? 'You cannot remove your own account' : 'Delete the account. To keep their work for the lab, archive them instead',
+                   onclick: remove }, 'Remove'));
   function setPassword() {
     const input = el('input', { type: 'text', minlength: 8, placeholder: 'New password', spellcheck: 'false',
                                 autocomplete: 'off', 'aria-label': `New password for ${u.username}` });
@@ -665,14 +702,15 @@ function userRow(u, data, labOptions, roleOptions, tab) {
     input.focus();
   }
   function remove() {
-    actions.replaceChildren(el('span', { class: 'sub inline' }, `Remove ${u.username} from every tool?`),
+    actions.replaceChildren(el('span', { class: 'sub inline' }, `Delete ${u.username}\u2019s account? To keep their work for the lab, archive them instead.`),
       el('button', { class: 'btn small danger', type: 'button',
                      onclick: () => act(api('DELETE', `api/admin/users/${name}`), `Removed ${u.username}.`, tab) },
         'Remove'),
       el('button', { class: 'btn small secondary', type: 'button', onclick: reset }, 'Keep'));
   }
   reset();
-  return el('tr', {}, el('td', {}, u.username), el('td', {}, lab), el('td', { class: 'center' }, role),
+  return el('tr', { class: u.archived ? 'archived' : '' },
+    el('td', {}, u.username, u.archived ? el('span', { class: 'sub' }, `Archived ${leftOn(u)}`) : null), el('td', {}, lab), el('td', { class: 'center' }, role),
     el('td', {}, (u.created_at || '').slice(0, 10)), actions);
 }
 

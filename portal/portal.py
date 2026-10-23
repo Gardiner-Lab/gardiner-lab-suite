@@ -104,7 +104,8 @@ def signed_in_account():
     if not username:
         return None
     account = directory.find(username)
-    if account is None or session.get('stamp') != password_stamp(account['password_hash']):
+    if (account is None or session.get('stamp') != password_stamp(account['password_hash'])
+            or labs.is_archived(account['username'])):
         session.clear()
         return None
     return account
@@ -331,6 +332,9 @@ def login():
         time.sleep(1)       # blunt the obvious guessing attack
         return jsonify({'error': 'Wrong username or password'}), 401
     forget_guesses(who, address)
+    if labs.is_archived(account['username']):
+        return jsonify({'error': 'This account is archived: its work is kept for the lab, but it no longer signs in. '
+                                 'Ask your lab admin or an administrator if you need it back.'}), 403
     start_session(account)
     if password == MOCLO_DEFAULT_PASSWORD:
         # The published default: let them in only to choose a new password.
@@ -467,7 +471,7 @@ def change_password():
 
 
 def _lab_row(lab: dict) -> dict:
-    return {'id': lab['id'], 'name': lab['name'], 'members': lab['members'],
+    return {'id': lab['id'], 'name': lab['name'], 'members': lab['members'], 'archived_members': lab['archived_members'],
             'code': lab['registration_code'], 'code_updated_by': lab['code_updated_by'],
             'code_updated_at': lab['code_updated_at'],
             'chair_group_id': lab.get('chair_group_id'), 'chair_group': lab.get('chair_group')}
@@ -483,6 +487,7 @@ def overview(account, role):
     led = managed_labs(account, role)
     run = managed_labs(account, role, 'lab_admin')
     everyone = labs.all_lab_members()
+    gone = labs.archived()
     people = []
     for person in directory.all_accounts():
         theirs = everyone.get(person['username'], [])
@@ -496,7 +501,9 @@ def overview(account, role):
                        max((m['role'] for m in theirs), key=labs.RANK.get, default='member'),
                        # Their first lab, as one-lab views show it.
                        'lab_id': first.get('lab_id'), 'lab': first.get('lab'),
-                       'labs': [{'lab_id': m['lab_id'], 'lab': m['lab'], 'role': m['role']} for m in shown]})
+                       'labs': [{'lab_id': m['lab_id'], 'lab': m['lab'], 'role': m['role']} for m in shown],
+                       'archived': gone.get(person['username']),
+                       'can_archive': _may_archive(account, role, person) is None})
     return jsonify({
         'me': {'username': account['username'], 'role': role},
         'can_manage': role == 'admin',
@@ -510,7 +517,8 @@ def overview(account, role):
             lab['chair_group_id'] == g['id'] for lab in labs.all_labs() if lab['id'] in led)],
         'users': people,
         # Accounts a lab admin may add to their labs: anyone but administrators.
-        'addable': sorted(p['username'] for p in directory.all_accounts() if not p['is_admin']) if run else [],
+        'addable': sorted(p['username'] for p in directory.all_accounts()
+                          if not p['is_admin'] and p['username'] not in gone) if run else [],
         'roles': list(labs.ROLES),
         'lab_roles': ['member', 'lab_lead', 'lab_admin'],
     })
@@ -806,6 +814,48 @@ def set_member_role(account, lab_id, username):
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({'ok': True})
+
+
+def _may_archive(account, role, target):
+    """
+    None if this person may archive (or bring back) the target, else the reason.
+    Administrators, anyone but themselves; a lab admin, someone whose labs are
+    all theirs to run (so no lab admin locks out another lab's people), who is
+    not an administrator or a lab admin.
+    """
+    if target['username'] == account['username']:
+        return 'You cannot archive yourself'
+    if role == 'admin':
+        return None
+    theirs = labs.labs_of(target['username'])
+    if target['is_admin'] or any(m['role'] == 'lab_admin' for m in theirs):
+        return 'Only an administrator archives an administrator or a lab admin'
+    run = managed_labs(account, role, 'lab_admin')
+    if not theirs or not run or any(m['lab_id'] not in run for m in theirs):
+        return 'Only an administrator, or the lab admin of every lab they are in, archives someone'
+    return None
+
+
+@app.route('/api/people/<username>/archive', methods=['POST', 'DELETE'])
+@require_lab_admin
+def archive_person(account, role, username):
+    """
+    POST: they have left. Their account, their labs and all their work stay -
+    their notebook, plasmids, stocks, seeds, parts - for their labs' leads and lab
+    admins; they no longer sign in (any session ends), and the tools leave them
+    out of their lists of people and free their bookings ahead. DELETE: back.
+    """
+    target, missing = _target_or_404(username)
+    if missing:
+        return missing
+    refused = _may_archive(account, role, target)
+    if refused:
+        return jsonify({'error': refused}), 403
+    if request.method == 'POST':
+        labs.archive(target['username'], account['username'])
+    else:
+        labs.restore(target['username'])
+    return jsonify({'ok': True, 'archived': labs.archived().get(target['username'])})
 
 
 @app.route('/api/lab/<lab_id>/members/<username>', methods=['DELETE'])
