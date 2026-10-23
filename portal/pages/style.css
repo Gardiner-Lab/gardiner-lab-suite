@@ -1,18 +1,18 @@
-/* The suite's own pages: sign in, register, the dashboard. Same tokens as the landing
-   page and the tools, so the suite reads as one system. */
+/* The suite's own pages: sign in, register, the dashboard, in Trellis Tools' look
+   (trellis.css, loaded first): their colours are the suite's palette. */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --primary: #2563eb; --primary-hover: #1d4ed8; --text: #1f2937; --muted: #6b7280;
-  --border: #e5e7eb; --bg: #f9fafb; --card: #ffffff; --subtle: #f3f4f6;
-  --bad-bg: #fef2f2; --bad: #b91c1c; --good-bg: #ecfdf5; --good: #047857;
-  --warn-bg: #fffbeb; --warn: #92400e;
-  --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+  --primary: var(--tt-green); --primary-hover: var(--tt-green-dark); --text: var(--tt-text); --muted: var(--tt-muted);
+  --border: var(--tt-border); --bg: var(--tt-bg); --card: var(--tt-card); --subtle: var(--tt-sunk);
+  --bad-bg: var(--tt-danger-soft); --bad: var(--tt-danger); --good-bg: var(--tt-green-soft); --good: var(--tt-green-ink);
+  --warn-bg: var(--tt-warn-soft); --warn: var(--tt-warn);
+  --shadow: var(--tt-shadow);
 }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--tt-font);
   line-height: 1.6; color: var(--text); background: var(--bg); min-height: 100vh;
 }
-a { color: var(--primary); }
+a { color: var(--tt-green-dark); }
 code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
 /* --- a single centred card: sign in, register ----------------------------- */
@@ -34,7 +34,7 @@ input, select {
   font: inherit; padding: .5rem .7rem; border: 1px solid var(--border); border-radius: .4rem;
   background: var(--card); color: var(--text); min-width: 0; min-height: 2.4rem;
 }
-input:focus, select:focus { outline: 3px solid #bfdbfe; border-color: var(--primary); }
+input:focus, select:focus { outline: none; box-shadow: var(--tt-focus); border-color: var(--primary); }
 .field .hint { font-size: .8rem; }
 
 .btn {
@@ -59,11 +59,6 @@ input:focus, select:focus { outline: 3px solid #bfdbfe; border-color: var(--prim
         justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 
 /* --- pages with a header: the dashboard -------------------------------------- */
-.topbar { background: var(--card); border-bottom: 1px solid var(--border); }
-.topbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-                min-height: 3.25rem; flex-wrap: wrap; }
-.topbar .home { font-weight: 650; text-decoration: none; color: var(--text); }
-.topbar .who { font-size: .875rem; color: var(--muted); display: flex; gap: .75rem; align-items: center; }
 .wrap { width: 100%; max-width: 64rem; margin: 0 auto; padding: 0 1rem; }
 main.wrap { padding-top: 1.5rem; padding-bottom: 3rem; display: grid; gap: 1.25rem; }
 section.card { padding: 1.25rem; }
@@ -106,7 +101,7 @@ body.dashboard.framed main > .panel:not([hidden]) { display: block; padding: 0; 
        display: inline-flex; gap: .4rem; align-items: center; }
 .tab:hover { color: var(--text); }
 .tab[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
-.tab:focus-visible { outline: 3px solid #bfdbfe; outline-offset: -3px; }
+.tab:focus-visible { outline: none; box-shadow: inset var(--tt-focus); }
 
 h3 { font-size: .95rem; font-weight: 650; margin: 1.5rem 0 .5rem; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1.25rem; margin-top: .75rem; }
@@ -115,7 +110,7 @@ h3 { font-size: .95rem; font-weight: 650; margin: 1.5rem 0 .5rem; }
 .add-grid { display: grid; gap: 0 .75rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); align-items: end; }
 .label-gap { display: block; font-size: .875rem; }
 .btn.danger { background: var(--bad); }
-.btn.danger:hover:not(:disabled) { background: #991b1b; }
+.btn.danger:hover:not(:disabled) { background: #9a1d14; }
 .sub.inline { display: inline; margin-right: .5rem; }
 td.actions input { width: 10rem; margin-right: .35rem; }
 .add-row .add-fields { display: contents; }

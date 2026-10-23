@@ -182,5 +182,5 @@ def test_in_the_suite_the_console_is_a_dashboard_tab(suite_console):
     assert r.status_code == 302 and r.headers['Location'] == '/account/#backups'
     assert suite_console.get('/?embed=1', headers={'X-Suite-User': 'boss'}).status_code == 200
     tabs = suite_console.get('/suite-manifest.json').get_json()['tabs']
-    assert tabs == [{'id': 'backups', 'title': 'Backups', 'icon': '💾', 'section': 'admin',
+    assert tabs == [{'id': 'backups', 'title': 'Backups', 'icon': '💾', 'glyph': 'archive', 'section': 'admin',
                      'roles': ['admin'], 'src': '/backup/?embed=1'}]

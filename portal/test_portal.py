@@ -923,3 +923,14 @@ def test_a_lab_keeps_the_people_who_left(portal):
     res = client.delete(f"/api/admin/labs/{lab['id']}")
     assert res.status_code == 400 and 'archived' in res.get_json()['error']
     assert 'dave' not in client.get('/api/admin/overview').get_json()['addable']
+
+
+def test_the_icons_are_served_to_anyone(portal):
+    _, client, _ = portal
+    res = client.get('/trellis.svg')
+    assert res.status_code == 200 and res.mimetype == 'image/svg+xml'
+    for name in ('moclo', 'editor', 'notebook', 'seeds', 'stocks', 'booking', 'dashboard', 'backups'):
+        res = client.get(f'/icons/{name}.svg')
+        assert res.status_code == 200 and res.mimetype == 'image/svg+xml' and b'<svg' in res.data, name
+    for bad in ('nope', '..%2Fportal', 'Moclo', 'a' * 40):
+        assert client.get(f'/icons/{bad}.svg').status_code == 404, bad
