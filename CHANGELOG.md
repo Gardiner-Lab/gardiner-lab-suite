@@ -8,6 +8,31 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-10-23
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.15.0 |
+| Plasmid Editor | 0.8.0 |
+| Lab Notebook | 0.13.0 |
+| Seed Bank | 0.5.0 |
+| Lab Stocks | 0.5.0 |
+| Sign-in service | 2.10.0 |
+| Backup service | 2.10.0 |
+
+### Added
+- More goes into the Lab Notebook (Lab Notebook 0.13.0): from the Plasmid Editor (0.8.0), a plasmid
+  map, a cloning product, a PCR, a designed primer pair and a sequencing read; from the MoClo Library
+  Tool (1.15.0), a part, a plasmid and a cassette - each with its pictures and what they show, into a
+  day's page. MoClo is told where the notebook is (`NOTEBOOK_URL=/notebook`).
+- Ladders of your own for the Plasmid Editor's virtual gel, shared with the chair group.
+- Labels for the DYMO LabelWriter 550 on LabTAG labels (Lab Stocks 0.5.0, Seed Bank 0.5.0): the labels
+  page shows and prints the labels as the LabTAG label chosen, and downloads a zip of .dymo files for
+  DYMO Connect. A select-all tick heads each list.
+
+### Changed
+- MoClo: a plasmid's export options come first, in one row.
+
 ## [2.9.9] - 2026-10-23
 
 | Component | Version |
