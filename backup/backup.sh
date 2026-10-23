@@ -155,6 +155,7 @@ backup_db "Labs and codes" "${SUITE_DB:-/suite/suite.db}"
 backup_db "Lab Notebook"   "${NOTEBOOK_DB:-/notebook/notebook.db}"
 backup_db "Seed Bank"      "${SEEDS_DB:-/seeds/seeds.db}"
 backup_db "Lab Stocks"     "${STOCKS_DB:-/stocks/stocks.db}"
+backup_db "Booking"        "${BOOKING_DB:-/booking/booking.db}"
 
 [ -n "$DB_REPORT" ] || fail "no databases were found to back up - check the volume mounts"
 

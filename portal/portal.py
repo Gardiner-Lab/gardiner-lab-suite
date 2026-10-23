@@ -172,7 +172,7 @@ def managed_labs(account, role, at_least='lab_lead') -> set:
 
 # What anyone may reach without signing in, besides this service itself: the
 # tools' health checks, for monitoring. They say "healthy" and nothing more.
-PUBLIC_PATHS = frozenset({'/health', '/editor/health', '/notebook/health', '/seeds/health', '/stocks/health', '/backup/health'})
+PUBLIC_PATHS = frozenset({'/health', '/editor/health', '/notebook/health', '/seeds/health', '/stocks/health', '/booking/health', '/backup/health'})
 
 
 def requested_path() -> str:

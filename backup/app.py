@@ -63,6 +63,7 @@ DATABASES = {
     'notebook.db': Path(os.environ.get('NOTEBOOK_DB', '/notebook/notebook.db')),
     'seeds.db': Path(os.environ.get('SEEDS_DB', '/seeds/seeds.db')),
     'stocks.db': Path(os.environ.get('STOCKS_DB', '/stocks/stocks.db')),
+    'booking.db': Path(os.environ.get('BOOKING_DB', '/booking/booking.db')),
 }
 
 # The MoClo tool creates 'admin' with this password when no such account exists.

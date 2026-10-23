@@ -81,6 +81,23 @@
       ],
       "health": "/stocks/health",
       "status": "live"
+    },
+    {
+      "id": "booking",
+      "name": "Booking",
+      "icon": "📅",
+      "colour": "#7c3aed",
+      "href": "/booking/",
+      "summary": "Book meeting rooms, microscopes, growth chambers and other equipment ahead, on a week calendar or by finding a free slot.",
+      "points": [
+        "A week calendar for each room or piece of equipment, today highlighted",
+        "Find a free slot by kind, place, length and time of day",
+        "Tag the people in a booking; it shows on the day in their Lab Notebook",
+        "Lab admins add and share rooms and equipment, with rules of their own"
+      ],
+      "health": "/booking/health",
+      "status": "live",
+      "manifest": "/booking/suite-manifest.json"
     }
   ],
   "admin": [

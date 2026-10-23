@@ -25,7 +25,7 @@ make restore         # put the latest backup back
 | `plasmid_editor.db` — sequences, sequencing reads, verifications | SQLite online backup |
 | `suite.db` — labs, their registration codes, who is in which lab | SQLite online backup |
 | Anything else in MoClo's and the editor's volumes | tar |
-| `notebook.db`, `seeds.db`, `stocks.db` (with their photos and files) | SQLite online backup |
+| `notebook.db`, `seeds.db`, `stocks.db` (with their photos and files), `booking.db` | SQLite online backup |
 | The stack's configuration: the compose files, `nginx/`, `landing/`, `scripts/`, `docs/`, `.env.example`, `Makefile`, `install.sh` | tar, **these named files only** |
 
 Databases are copied with SQLite's **online backup**, so the applications keep
