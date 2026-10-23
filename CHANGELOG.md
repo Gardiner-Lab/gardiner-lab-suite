@@ -8,12 +8,26 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-10-23
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.15.0 |
+| Plasmid Editor | 0.8.0 |
+| Lab Notebook | 0.14.0 |
+| Seed Bank | 0.5.1 |
+| Lab Stocks | 0.5.1 |
+| Booking | 0.1.0 |
+| Sign-in service | 2.12.0 |
+| Backup service | 2.12.0 |
+
 ### Added
 - **Booking** (lab-booking 0.1.0), at /booking/: rooms and equipment that lab admins add and share with
   labs and chair groups, booked ahead on a week calendar (today highlighted) or by finding a free slot,
   with the people in each booking; on the dashboard, My bookings and Rooms & equipment. Backed up
   nightly with the rest (booking.db).
-- The Lab Notebook (0.14.0) shows each day's bookings on the day, reading the Booking tool's volume.
+- The Lab Notebook (0.14.0) shows each day's bookings on the day, reading the Booking tool's volume, and
+  gives every booked day a page.
 
 ## [2.11.0] - 2026-10-23
 
