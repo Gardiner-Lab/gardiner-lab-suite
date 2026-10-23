@@ -99,4 +99,4 @@ jobs:
           git archive --format=tar.gz --prefix="gardiner-lab-suite/" \
             -o "gardiner-lab-suite-$version.tar.gz" "$GITHUB_REF_NAME"
           gh release create "$GITHUB_REF_NAME" "gardiner-lab-suite-$version.tar.gz" \
-            --title "Gardiner Lab Tools $version" --notes-file notes.md
+            --title "Trellis Tools $version" --notes-file notes.md

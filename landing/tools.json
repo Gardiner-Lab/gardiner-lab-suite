@@ -1,8 +1,8 @@
 {
   "suite": {
-    "name": "Gardiner Lab Tools",
+    "name": "Trellis Tools",
     "tagline": "Molecular plant biology software for the lab",
-    "footer": "Gardiner Lab, Universiteit Utrecht"
+    "footer": "Made by the Gardiner Lab, Universiteit Utrecht"
   },
   "tools": [
     {

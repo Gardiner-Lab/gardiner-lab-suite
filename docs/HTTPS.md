@@ -42,14 +42,14 @@ from the suite. No sign-in is needed:
 2. **Current User**, Next.
 3. **Place all certificates in the following store**, Browse, **Trusted Root
    Certification Authorities**, OK, Next, Finish.
-4. Windows asks whether to install a certificate from "Gardiner Lab suite
+4. Windows asks whether to install a certificate from "Trellis Tools
    authority": **Yes**.
 5. Close the browser completely and open it again.
 
 **macOS** (Safari, Chrome, Edge):
 
 1. Open `lab-suite-ca.crt`; it goes into Keychain Access, **login** keychain.
-2. Double-click "Gardiner Lab suite authority", open **Trust**, and set
+2. Double-click "Trellis Tools authority", open **Trust**, and set
    **When using this certificate** to **Always Trust**. Close the window and
    give your password.
 

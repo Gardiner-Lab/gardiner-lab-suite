@@ -1,4 +1,4 @@
-# Gardiner Lab Tools
+# Trellis Tools
 
 One Docker stack that runs the lab's software behind a single port, with a
 landing page that lists the tools:

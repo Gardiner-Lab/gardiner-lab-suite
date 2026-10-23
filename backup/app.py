@@ -1,5 +1,5 @@
 """
-Backup console for the Gardiner Lab suite.
+Backup console for Trellis Tools.
 
 A small admin interface for the backup system: choose where backups are
 written, run one now, see what is held, download an archive, upload one from
@@ -407,7 +407,7 @@ def prepare_destination():
         return jsonify({'error': f'Cannot write to {dest}: {exc}. '
                                  'Is the drive mounted on the server, and writable?'}), 400
     (dest / '.backup-target').write_text(
-        'This directory is the backup destination for the Gardiner Lab tool suite.\n'
+        'This directory is the backup destination for Trellis Tools.\n'
         f'Marked from the backup console on {time.strftime("%Y-%m-%d %H:%M:%S")}.\n\n'
         'The backup refuses to run if this file is missing, so that an unmounted\n'
         'network drive is never silently filled up instead.\n')

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install, or update, the Gardiner Lab tool suite.
+# Install, or update, Trellis Tools.
 #
 #   ./install.sh                 install, or update an existing installation
 #   ./install.sh --port 8080     choose the port (default: the old MoClo's, else 8080)

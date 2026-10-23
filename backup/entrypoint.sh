@@ -34,7 +34,7 @@ case "${1:-schedule}" in
     # mount cannot be mistaken for the destination.
     [ -d "$DEST" ] || { echo "Error: $DEST is not mounted in this container" >&2; exit 1; }
     cat > "$DEST/.backup-target" <<EOF
-This directory is the backup destination for the Gardiner Lab tool suite.
+This directory is the backup destination for Trellis Tools.
 Marked on $(date -u '+%Y-%m-%d %H:%M:%SZ') from $(hostname).
 
 The backup refuses to run if this file is missing, so that an unmounted
