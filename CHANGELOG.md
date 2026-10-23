@@ -8,6 +8,26 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.9.8] - 2026-10-23
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.6.2 |
+| Lab Notebook | 0.11.0 |
+| Seed Bank | 0.4.1 |
+| Lab Stocks | 0.4.3 |
+| Sign-in service | 2.9.8 |
+| Backup service | 2.9.8 |
+
+### Added
+- Lab Notebook 0.11.0: pages shared to work on together. A lab member shares a page (or a day), and
+  everything under it, with people or labs of their chair group; they find it under "Shared with me",
+  change it, add pages under it, and can show it under a page of their own as well - one page in both
+  notebooks, so a change shows in both. An open page shows others' saves within half a minute.
+  Chair groups are set by an administrator on the dashboard; without one, a page is shared within the
+  owner's own labs.
+
 ## [2.9.7] - 2026-10-23
 
 | Component | Version |
