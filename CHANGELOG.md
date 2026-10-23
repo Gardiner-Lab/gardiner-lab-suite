@@ -8,6 +8,17 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Archiving people who leave.** On the dashboard, Archive (Accounts tab for administrators; a lab's
+  members for its lab admin, for someone only in labs they run). The account and its labs are kept, so
+  all their work stays where it is - notebook, plasmids, stocks, seeds, parts - for their labs' leads
+  and lab admins; they no longer sign in (an open session ends at once), are left out of the tools'
+  lists of people, and their bookings ahead are freed. Listed under "Left the lab", with Bring back.
+  A lab with archived people cannot be removed. Remove still deletes an account, and now says so.
+
+### Fixed
+- Lab leads and lab admins saw a stray "null" on the Labs tab.
+
 ## [2.12.0] - 2026-10-23
 
 | Component | Version |

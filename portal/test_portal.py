@@ -845,3 +845,81 @@ def test_a_certificate_is_matched_to_the_host(portal):
     assert not module._covers(['*.example.org'], 'a.lab.example.org')
     assert not module._covers(['localhost'], 'lab.example.org')
 
+
+
+# ---------------------------------------------------------------------------
+# People who have left
+# ---------------------------------------------------------------------------
+
+def leavers(module):
+    """alice runs Gardiner Lab (lab admin); dave and erin are in it; fred is in it and Smith Lab too."""
+    lab = gardiner(module)
+    other = module.labs.create('Smith Lab', 'boss')
+    for name in ('dave', 'erin', 'fred'):
+        module.directory.create(name, f'{name}-password-1', is_admin=False)
+    module.labs.set_lab('alice', lab['id'])
+    module.labs.set_role('alice', 'lab_admin', lab['id'])
+    for name in ('dave', 'erin', 'fred'):
+        module.labs.set_lab(name, lab['id'])
+    module.labs.add('fred', other['id'])
+    return lab, other
+
+
+def test_someone_archived_no_longer_signs_in_and_their_labs_keep_them(portal):
+    module, client, _ = portal
+    lab, _ = leavers(module)
+    dave = module.app.test_client()
+    sign_in(dave, 'dave', 'dave-password-1')
+    assert dave.get('/api/check').status_code == 200
+    sign_in(client, 'alice', 'alice-password')
+    res = client.post('/api/people/dave/archive')
+    assert res.status_code == 200 and res.get_json()['archived']['archived_by'] == 'alice'
+    # Their session ends at once, and they cannot sign in again.
+    assert dave.get('/api/check').status_code == 401
+    res = sign_in(module.app.test_client(), 'dave', 'dave-password-1')
+    assert res.status_code == 403 and 'archived' in res.get_json()['error']
+    # Still in the lab, for its leads: listed as having left, not counted, not to be added again.
+    body = client.get('/api/admin/overview').get_json()
+    dave_row = next(u for u in body['users'] if u['username'] == 'dave')
+    assert dave_row['archived'] and dave_row['labs'][0]['lab_id'] == lab['id']
+    gl = next(l for l in body['labs'] if l['id'] == lab['id'])
+    assert gl['members'] == 3 and gl['archived_members'] == 1
+    assert module.labs.role_in('dave', lab['id']) == 'member'
+    # Brought back: signs in as before.
+    assert client.delete('/api/people/dave/archive').status_code == 200
+    assert sign_in(module.app.test_client(), 'dave', 'dave-password-1').status_code == 200
+
+
+def test_who_archives_whom(portal):
+    module, client, _ = portal
+    leavers(module)
+    sign_in(client, 'alice', 'alice-password')
+    body = client.get('/api/admin/overview').get_json()
+    may = {u['username']: u['can_archive'] for u in body['users']}
+    # A lab admin: people only in their labs; not someone also in another lab, nor themselves.
+    assert may == {'alice': False, 'dave': True, 'erin': True, 'fred': False}
+    assert client.post('/api/people/fred/archive').status_code == 403
+    assert client.post('/api/people/alice/archive').status_code == 403
+    assert client.post('/api/people/boss/archive').status_code == 403
+    # A member: nobody.
+    erin = module.app.test_client()
+    sign_in(erin, 'erin', 'erin-password-1')
+    assert erin.post('/api/people/dave/archive').status_code == 403
+    # An administrator: anyone but themselves.
+    boss = module.app.test_client()
+    sign_in(boss, 'boss', 'boss-password')
+    assert boss.post('/api/people/fred/archive').status_code == 200
+    assert boss.post('/api/people/alice/archive').status_code == 200
+    assert boss.post('/api/people/boss/archive').status_code == 403
+
+
+def test_a_lab_keeps_the_people_who_left(portal):
+    module, client, _ = portal
+    lab, other = leavers(module)
+    sign_in(client, 'boss', 'boss-password')
+    for name in ('alice', 'dave', 'erin', 'fred'):
+        client.post(f'/api/people/{name}/archive')
+    assert module.labs.get(lab['id'])['members'] == 0
+    res = client.delete(f"/api/admin/labs/{lab['id']}")
+    assert res.status_code == 400 and 'archived' in res.get_json()['error']
+    assert 'dave' not in client.get('/api/admin/overview').get_json()['addable']

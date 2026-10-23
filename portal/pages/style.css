@@ -140,3 +140,8 @@ td.center { text-align: center; }
 .toggle input { width: auto; }
 .toggle .hint, .field label .hint { margin: 0; font-weight: 400; }
 .narrow { max-width: 36rem; }
+
+/* People who have left. */
+tr.archived td { color: var(--muted); }
+.left-list { margin-top: 1rem; }
+.left-list summary { cursor: pointer; font-weight: 600; font-size: .9rem; color: var(--muted); }

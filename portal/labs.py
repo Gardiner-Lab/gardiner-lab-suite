@@ -85,6 +85,15 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+-- People who have left: their account and labs are kept, so their work stays
+-- where it is and their labs' leads and lab admins keep seeing it, but they no
+-- longer sign in and are left out of the tools' lists of people. The tools read
+-- this table. archived_at is UTC, as '2026-10-23T15:00:00Z'.
+CREATE TABLE IF NOT EXISTS archived (
+    username TEXT PRIMARY KEY,
+    archived_at TEXT NOT NULL,
+    archived_by TEXT
+);
 -- Wrong passwords, by account and address, for limiting guesses (portal.py).
 CREATE TABLE IF NOT EXISTS signin_failures (
     username TEXT NOT NULL,
@@ -213,7 +222,10 @@ def default_lab_name() -> str:
 def all_labs() -> List[dict]:
     with connect() as conn:
         return [dict(r) for r in conn.execute(
-            'SELECT labs.*, cg.name AS chair_group, (SELECT COUNT(*) FROM lab_members WHERE lab_id = labs.id) AS members '
+            'SELECT labs.*, cg.name AS chair_group, (SELECT COUNT(*) FROM lab_members m WHERE m.lab_id = labs.id '
+            'AND m.username NOT IN (SELECT username FROM archived)) AS members, '
+            '(SELECT COUNT(*) FROM lab_members m WHERE m.lab_id = labs.id '
+            'AND m.username IN (SELECT username FROM archived)) AS archived_members '
             'FROM labs LEFT JOIN chair_groups cg ON cg.id = labs.chair_group_id ORDER BY labs.name COLLATE NOCASE')]
 
 
@@ -336,6 +348,8 @@ def delete(lab_id: str) -> None:
         raise LookupError('No such lab')
     if lab['members']:
         raise ValueError(f'"{lab["name"]}" still has members; move them to another lab first')
+    if lab['archived_members']:
+        raise ValueError(f'People who left are archived in "{lab["name"]}": it keeps their work for the lab')
     with connect() as conn:
         conn.execute('DELETE FROM labs WHERE id = ?', (lab_id,))
 
@@ -590,8 +604,38 @@ def prepare(editor_db: Path) -> None:
         create(default_lab_name(), 'installer')
 
 
+# ---------------------------------------------------------------------------
+# People who have left
+# ---------------------------------------------------------------------------
+
+def archived() -> Dict[str, dict]:
+    """username -> {'archived_at', 'archived_by'}."""
+    with connect() as conn:
+        return {r['username']: {'archived_at': r['archived_at'], 'archived_by': r['archived_by']}
+                for r in conn.execute('SELECT * FROM archived')}
+
+
+def is_archived(username: str) -> bool:
+    with connect() as conn:
+        return conn.execute('SELECT 1 FROM archived WHERE username = ?', (username,)).fetchone() is not None
+
+
+def archive(username: str, by: str) -> None:
+    """They have left: kept, with their labs, but no longer signing in."""
+    from datetime import datetime, timezone
+    with connect() as conn:
+        conn.execute('INSERT OR IGNORE INTO archived (username, archived_at, archived_by) VALUES (?, ?, ?)',
+                     (username, datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), by))
+
+
+def restore(username: str) -> None:
+    with connect() as conn:
+        conn.execute('DELETE FROM archived WHERE username = ?', (username,))
+
+
 def forget(username: str) -> None:
     """A removed account leaves its labs."""
     with connect() as conn:
+        conn.execute('DELETE FROM archived WHERE username = ?', (username,))
         conn.execute('DELETE FROM lab_members WHERE username = ?', (username,))
         conn.execute('DELETE FROM members WHERE username = ?', (username,))
