@@ -8,6 +8,19 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-10-23
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.15.0 |
+| Plasmid Editor | 0.8.0 |
+| Lab Notebook | 0.15.0 |
+| Seed Bank | 0.5.2 |
+| Lab Stocks | 0.5.2 |
+| Booking | 0.1.1 |
+| Sign-in service | 2.13.0 |
+| Backup service | 2.13.0 |
+
 ### Added
 - **Archiving people who leave.** On the dashboard, Archive (Accounts tab for administrators; a lab's
   members for its lab admin, for someone only in labs they run). The account and its labs are kept, so
