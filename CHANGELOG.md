@@ -8,6 +8,25 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.9.9] - 2026-10-23
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.7.0 |
+| Lab Notebook | 0.12.0 |
+| Seed Bank | 0.4.1 |
+| Lab Stocks | 0.4.3 |
+| Sign-in service | 2.9.9 |
+| Backup service | 2.9.9 |
+
+### Added
+- A virtual digest goes into the Lab Notebook (Plasmid Editor 0.7.0, Lab Notebook 0.12.0): 📓 Add to
+  notebook, under the editor's virtual gel, puts the gel and its fragments into a day's page - today's,
+  or a day chosen - as a gel photo with its wells numbered and named, and a table of the fragments with
+  a column to tick off the bands seen on the real gel. The editor is told where the notebook is
+  (`NOTEBOOK_URL=/notebook`).
+
 ## [2.9.8] - 2026-10-23
 
 | Component | Version |
