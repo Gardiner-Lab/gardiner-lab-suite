@@ -1,4 +1,4 @@
-# Sign-in, registration and labs for the Gardiner Lab suite: the proxy asks it
+# Sign-in, registration and labs for Trellis Tools: the proxy asks it
 # who is signed in before every request to a tool.
 FROM alpine:3.20
 

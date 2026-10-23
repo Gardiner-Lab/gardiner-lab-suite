@@ -1,4 +1,4 @@
-# Gardiner Lab tool suite: one stack, one port, independent images.
+# Trellis Tools: one stack, one port, independent images.
 #
 #   SECRET_KEY=$(openssl rand -hex 32) \
 #   MOCLO_SECRET_KEY=$(openssl rand -hex 32) \

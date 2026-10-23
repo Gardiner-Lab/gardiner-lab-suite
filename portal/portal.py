@@ -1,5 +1,5 @@
 """
-Sign-in, registration and labs for the whole Gardiner Lab suite.
+Sign-in, registration and labs for the whole Trellis Tools.
 
 One sign-in page, one session, every tool. The proxy asks this service who is
 signed in before every request to a tool (nginx ``auth_request`` on
@@ -1039,6 +1039,12 @@ def change_hosting(account):
 @app.route('/style.css')
 def stylesheet():
     return send_file(PAGES / 'style.css', max_age=0)
+
+
+@app.route('/trellis.svg')
+def icon():
+    """Trellis Tools' icon (docs/icon/make_icon.py draws it), here so the sign-in page has it too."""
+    return send_file(PAGES / 'trellis.svg', mimetype='image/svg+xml', max_age=0)
 
 
 @app.route('/health')

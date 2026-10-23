@@ -1,7 +1,7 @@
 .PHONY: help install up down logs pull update restart-proxy local check certs         backup backup-init backup-check backup-list backup-logs restore restore-check
 
 help:
-	@echo "Gardiner Lab Tools - available commands"
+	@echo "Trellis Tools - available commands"
 	@echo "======================================="
 	@echo "install       - Install or update; takes over an existing MoClo"
 	@echo "up            - Start the suite (needs SECRET_KEY and MOCLO_SECRET_KEY)"

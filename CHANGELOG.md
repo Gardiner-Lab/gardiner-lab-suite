@@ -8,6 +8,14 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **The suite is called Trellis Tools**: the landing page, sign-in, registration, the dashboard and the
+  backup console, and the docs. The landing page says it is made by the Gardiner Lab. The repositories,
+  images and the lab certificate authority's name are unchanged (a new authority would have to be
+  trusted again on every computer).
+- **Its icon**: a DNA double helix as a trellis, with a vine climbing it, in brown and green - in the browser tab,
+  on the landing page and on the sign-in page (served at /account/trellis.svg; drawn by docs/icon/make_icon.py).
+
 ## [2.13.0] - 2026-10-23
 
 | Component | Version |

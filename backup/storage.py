@@ -52,7 +52,7 @@ def last_status_file() -> Path:
 ARCHIVE_RE = re.compile(r'^lab-suite-(\d{4}-\d{2}-\d{2})_\d{6}\.tar\.gz$')
 MARKER = '.backup-target'
 MARKER_TEXT = (
-    'This directory is the backup destination for the Gardiner Lab tool suite.\n'
+    'This directory is the backup destination for Trellis Tools.\n'
     'Marked from the backup console on {when}.\n\n'
     'The backup refuses to run if this file is missing, so that a drive that\n'
     'failed to mount, or the wrong share, is never silently filled up instead.\n')
