@@ -50,7 +50,7 @@ def load(monkeypatch, moclo, editor, suite, **env):
     monkeypatch.setenv('EDITOR_DB', str(editor))
     monkeypatch.setenv('SUITE_DB', str(suite))
     monkeypatch.setenv('SECRET_KEY', 'test')
-    for key in ('DEFAULT_LAB_SOURCE', 'REQUIRE_REGISTRATION_CODE', 'ALLOW_REGISTRATION'):
+    for key in ('DEFAULT_LAB_SOURCE', 'REQUIRE_REGISTRATION_CODE', 'ALLOW_REGISTRATION', 'SUITE_PUBLIC_URL'):
         monkeypatch.delenv(key, raising=False)
     for key, value in env.items():
         monkeypatch.setenv(key, value)
@@ -733,3 +733,115 @@ def test_an_administrator_makes_someone_lab_admin(portal):
     assert made.status_code == 201 and module.labs.membership('kim')['role'] == 'lab_admin'
     # An administrator manages any lab's members too.
     assert client.delete(f"/api/lab/{lab['id']}/members/kim").status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Hosting: guesses, HSTS and the Hosting tab
+# ---------------------------------------------------------------------------
+
+def try_password(client, username, password, address):
+    return client.post('/api/login', json={'username': username, 'password': password}, headers={'X-Real-IP': address})
+
+
+def test_too_many_wrong_passwords_stop_that_address_only(portal):
+    module, client, _ = portal
+    for _ in range(module.GUESSES):
+        assert try_password(client, 'Alice', 'nope', '203.0.113.9').status_code == 401
+    # Even the right password, from there, waits.
+    res = try_password(client, 'alice', 'alice-password', '203.0.113.9')
+    assert res.status_code == 429 and int(res.headers['Retry-After']) > 0
+    assert 'Try again in 15 minutes' in res.get_json()['error']
+    # Alice herself, elsewhere, signs in; and so does anyone else from there.
+    assert try_password(client, 'alice', 'alice-password', '198.51.100.1').status_code == 200
+    assert try_password(client, 'boss', 'boss-password', '203.0.113.9').status_code == 200
+
+
+def test_wrong_passwords_are_forgotten_on_success_and_after_the_window(portal, monkeypatch):
+    module, client, _ = portal
+    for _ in range(module.GUESSES - 1):
+        try_password(client, 'alice', 'nope', '203.0.113.9')
+    assert try_password(client, 'alice', 'alice-password', '203.0.113.9').status_code == 200
+    for _ in range(module.GUESSES - 1):     # counted from nothing again
+        assert try_password(client, 'alice', 'nope', '203.0.113.9').status_code == 401
+    try_password(client, 'alice', 'nope', '203.0.113.9')
+    assert try_password(client, 'alice', 'alice-password', '203.0.113.9').status_code == 429
+    later = module.time.time() + module.GUESS_WINDOW + 1
+    monkeypatch.setattr(module.time, 'time', lambda: later)
+    assert try_password(client, 'alice', 'alice-password', '203.0.113.9').status_code == 200
+
+
+@pytest.fixture()
+def no_proxy(portal, monkeypatch):
+    """The certificate check reaches no proxy in tests."""
+    monkeypatch.setattr(portal[0], 'served_certificate', lambda host: {'checked_for': host})
+    return portal
+
+
+def test_only_administrators_see_and_change_hosting(no_proxy):
+    module, client, _ = no_proxy
+    sign_in(client, 'alice', 'alice-password')
+    assert client.get('/api/admin/hosting').status_code == 403
+    assert client.put('/api/admin/hosting', json={'allow_registration': False}).status_code == 403
+
+
+def test_hosting_settings_start_from_env_and_are_changed_on_the_dashboard(tmp_path, monkeypatch):
+    moclo = tmp_path / 'moclo.db'
+    make_directory(moclo, [('boss', 'boss-password', True), ('admin', 'admin123', True)])
+    module = load(monkeypatch, moclo, tmp_path / 'missing.db', tmp_path / 'suite.db', DEFAULT_LAB_SOURCE='Gardiner Lab',
+                  SUITE_PUBLIC_URL='https://lab.example.org/', ALLOW_REGISTRATION='false')
+    monkeypatch.setattr(module, 'served_certificate', lambda host: {'checked_for': host})
+    client = module.app.test_client()
+    sign_in(client, 'boss', 'boss-password')
+    data = client.get('/api/admin/hosting').get_json()
+    assert data['settings']['public_url'] == {'value': 'https://lab.example.org', 'from': 'env', 'env': 'SUITE_PUBLIC_URL'}
+    assert data['settings']['allow_registration']['value'] is False
+    assert data['settings']['require_registration_code'] == {'value': True, 'from': 'default', 'env': 'REQUIRE_REGISTRATION_CODE'}
+    assert data['status']['certificate'] == {'checked_for': 'lab.example.org'}
+    assert data['status']['admins_on_default_password'] == ['admin']
+    assert data['status']['hsts'] is True
+    # Changed here, it counts instead of .env's; null goes back to .env's.
+    settings = client.put('/api/admin/hosting', json={'public_url': 'Suite.Example.org/lab', 'allow_registration': True,
+                                                      'require_registration_code': False}).get_json()['settings']
+    assert settings['public_url']['value'] == 'https://suite.example.org/lab' and settings['public_url']['from'] == 'dashboard'
+    assert module.labs.registration_open() and not module.labs.code_required()
+    client.put('/api/admin/hosting', json={'allow_registration': None, 'public_url': ''})
+    assert not module.labs.registration_open() and module.labs.public_url() == ''
+
+
+def test_hosting_settings_are_checked(no_proxy):
+    module, client, _ = no_proxy
+    sign_in(client, 'boss', 'boss-password')
+    for bad in ({'public_url': 'ftp://x'}, {'public_url': 'https://'}, {'public_url': 'https://a b'},
+                {'public_url': 'https://lab.example.org/?x=1'}, {'allow_registration': 'yes'}, {'colour': 'red'}):
+        assert client.put('/api/admin/hosting', json=bad).status_code == 400, bad
+
+
+def test_registration_closed_on_the_dashboard_closes_it(no_proxy):
+    module, client, _ = no_proxy
+    sign_in(client, 'boss', 'boss-password')
+    client.put('/api/admin/hosting', json={'allow_registration': False})
+    client.post('/api/logout')
+    assert client.get('/api/labs').get_json()['registration_open'] is False
+    res = client.post('/api/register', json={'username': 'zed', 'password': 'zed-password-1', 'lab': 'Gardiner Lab',
+                                             'code': gardiner(module)['registration_code']})
+    assert res.status_code == 403
+
+
+def test_hsts_only_on_the_public_https_address(no_proxy):
+    module, client, _ = no_proxy
+    assert 'Strict-Transport-Security' not in client.get('/login').headers
+    module.labs.set_hosting('public_url', 'https://lab.example.org')
+    assert client.get('/login', headers={'Host': 'lab.example.org'}).headers['Strict-Transport-Security'] == 'max-age=31536000'
+    assert 'Strict-Transport-Security' not in client.get('/login', headers={'Host': 'localhost'}).headers
+    assert 'Strict-Transport-Security' not in client.get('/api/check', headers={'Host': 'lab.example.org'}).headers
+    module.labs.set_hosting('public_url', 'http://lab.example.org')
+    assert 'Strict-Transport-Security' not in client.get('/login', headers={'Host': 'lab.example.org'}).headers
+
+
+def test_a_certificate_is_matched_to_the_host(portal):
+    module = portal[0]
+    assert module._covers(['lab.example.org'], 'LAB.example.org')
+    assert module._covers(['*.example.org'], 'lab.example.org')
+    assert not module._covers(['*.example.org'], 'a.lab.example.org')
+    assert not module._covers(['localhost'], 'lab.example.org')
+

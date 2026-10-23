@@ -125,3 +125,18 @@ td.actions input { width: 10rem; margin-right: .35rem; }
 .chip-x { border: 0; background: none; cursor: pointer; color: var(--muted, #6b7280); padding: 0 .3rem; font-size: .8rem; }
 .chip-x:hover { color: var(--bad, #b91c1c); }
 td.center { text-align: center; }
+
+/* The Hosting tab's checklist. */
+.checks { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: .65rem; }
+.check { display: grid; grid-template-columns: 1.5rem 1fr; gap: .6rem; align-items: start; }
+.check .mark { width: 1.5rem; height: 1.5rem; border-radius: 50%; display: grid; place-items: center;
+    font-size: .8rem; font-weight: 700; }
+.check.good .mark { background: var(--good-bg); color: var(--good); }
+.check.warn .mark { background: var(--warn-bg); color: var(--warn); }
+.check.bad .mark { background: var(--bad-bg); color: var(--bad); }
+.check.info .mark { background: var(--subtle); color: var(--muted); }
+.check .sub { margin-top: .1rem; }
+.toggle { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; font-weight: 500; }
+.toggle input { width: auto; }
+.toggle .hint, .field label .hint { margin: 0; font-weight: 400; }
+.narrow { max-width: 36rem; }

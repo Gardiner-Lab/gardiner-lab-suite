@@ -35,9 +35,11 @@ Three things shape the design:
 
 import hashlib
 import os
+import socket
+import ssl
 import time
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -205,6 +207,28 @@ def check():
     return response
 
 
+@app.after_request
+def strict_transport(response):
+    """
+    On the suite's public address over https (the Hosting tab), browsers are told
+    to use https there from now on (HSTS), so nobody is caught on a plain-http
+    copy of the sign-in page. Only there: on localhost or the machine's own name
+    it would hold every other site on that host to https for a year. Not on the
+    proxy's checks, which no browser sees.
+    """
+    if request.path in ('/api/check', '/health'):
+        return response
+    public = urlsplit(labs.public_url())
+    if public.scheme == 'https' and (request.host or '').split(':')[0].lower() == public.hostname:
+        response.headers.setdefault('Strict-Transport-Security', f'max-age={HSTS_SECONDS}')
+    return response
+
+
+# A year: what browsers expect. Leaving the public address unset (or http) stops
+# it being sent, and browsers forget it when it runs out.
+HSTS_SECONDS = 365 * 24 * 3600
+
+
 @app.route('/api/signin', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])
 def signin_first():
     """
@@ -227,6 +251,43 @@ def signin_first():
 # ---------------------------------------------------------------------------
 # Signing in and out
 # ---------------------------------------------------------------------------
+
+# Guessing passwords: after GUESSES wrong ones for an account from one address
+# within GUESS_WINDOW seconds, that address may not try that account again until
+# the oldest of them is older than that. Only that address: someone else's
+# guesses never lock the person out. The proxy also limits how often any one
+# address may try at all (nginx/default.conf, suite_signin).
+GUESSES = int(os.environ.get('SIGNIN_GUESSES', '10'))
+GUESS_WINDOW = int(os.environ.get('SIGNIN_GUESS_MINUTES', '15')) * 60
+
+
+def client_address() -> str:
+    """The visitor's address, as the proxy saw it (X-Real-IP, which it always sets)."""
+    return request.headers.get('X-Real-IP') or request.remote_addr or ''
+
+
+def guess_wait(username: str, address: str) -> int:
+    """Seconds before this address may try this account again; 0 when it may now."""
+    since = time.time() - GUESS_WINDOW
+    with labs.connect() as conn:
+        conn.execute('DELETE FROM signin_failures WHERE at < ?', (since,))
+        rows = conn.execute('SELECT at FROM signin_failures WHERE username = ? AND address = ? ORDER BY at DESC',
+                            (username, address)).fetchall()
+    if len(rows) < GUESSES:
+        return 0
+    return max(1, int(rows[GUESSES - 1]['at'] - since))
+
+
+def note_guess(username: str, address: str) -> None:
+    with labs.connect() as conn:
+        conn.execute('INSERT INTO signin_failures (username, address, at) VALUES (?, ?, ?)',
+                     (username, address, time.time()))
+
+
+def forget_guesses(username: str, address: str) -> None:
+    with labs.connect() as conn:
+        conn.execute('DELETE FROM signin_failures WHERE username = ? AND address = ?', (username, address))
+
 
 @app.route('/api/session')
 def session_status():
@@ -255,10 +316,21 @@ def login():
     if data is None:
         return jsonify({'error': 'Send the username and password as JSON'}), 400
     password = str(data.get('password') or '')
-    account = directory.find(str(data.get('username') or ''))
+    name = str(data.get('username') or '')
+    who, address = name.strip().lower(), client_address()
+    wait = guess_wait(who, address)
+    if wait:
+        minutes = -(-wait // 60)
+        response = jsonify({'error': f'Too many wrong passwords. Try again in {minutes} minute{"s" if minutes > 1 else ""}, '
+                                     'or ask an administrator to set a new password.'})
+        response.headers['Retry-After'] = str(wait)
+        return response, 429
+    account = directory.find(name)
     if account is None or not directory.check_password(account, password):
+        note_guess(who, address)
         time.sleep(1)       # blunt the obvious guessing attack
         return jsonify({'error': 'Wrong username or password'}), 401
+    forget_guesses(who, address)
     start_session(account)
     if password == MOCLO_DEFAULT_PASSWORD:
         # The published default: let them in only to choose a new password.
@@ -759,6 +831,155 @@ def remove_member(account, role, lab_id, username):
         return jsonify({'error': 'Only an administrator can take an administrator or a lab admin out of a lab'}), 403
     labs.remove(target['username'], lab_id)
     return jsonify({'ok': True})
+
+
+# ---------------------------------------------------------------------------
+# Hosting: the suite at an address of its own
+# ---------------------------------------------------------------------------
+#
+# The Hosting tab: the settings an administrator changes for the suite reached
+# at a public address (labs.HOSTING), and how it stands - the certificate the
+# proxy serves, sign-in cookies, registration, and administrators still on the
+# published default password. The last backup the tab asks the backup console.
+
+# The proxy, as this service reaches it on the suite's network, for the
+# certificate it serves.
+PROXY_HOST = os.environ.get('SUITE_PROXY_HOST', 'proxy')
+
+
+def _cert_names(cert) -> dict:
+    """What the dashboard shows of a certificate (a cryptography x509 object)."""
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+
+    def name(of, oid):
+        found = of.get_attributes_for_oid(oid)
+        return found[0].value if found else None
+    try:
+        dns = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+        names = dns.get_values_for_type(x509.DNSName) + [str(ip) for ip in dns.get_values_for_type(x509.IPAddress)]
+    except x509.ExtensionNotFound:
+        names = []
+    until = getattr(cert, 'not_valid_after_utc', None) or cert.not_valid_after.replace(tzinfo=timezone.utc)
+    return {
+        'subject': name(cert.subject, NameOID.COMMON_NAME),
+        'issuer': name(cert.issuer, NameOID.ORGANIZATION_NAME) or name(cert.issuer, NameOID.COMMON_NAME),
+        'names': names,
+        'expires': until.isoformat(),
+        'days_left': (until - datetime.now(timezone.utc)).days,
+    }
+
+
+def _covers(names, host: str) -> bool:
+    host = host.lower()
+    for n in (n.lower() for n in names):
+        if n == host or (n.startswith('*.') and host.count('.') == n.count('.') and host.endswith(n[1:])):
+            return True
+    return False
+
+
+def served_certificate(host: str) -> dict:
+    """
+    The certificate the proxy serves for this host name, and whether a computer
+    that has never trusted the lab's own authority trusts it (a certificate from
+    a public or university authority does; the lab's own does not).
+    """
+    trusted, problem = True, None
+    try:
+        with socket.create_connection((PROXY_HOST, 443), timeout=4) as raw:
+            with ssl.create_default_context().wrap_socket(raw, server_hostname=host) as tls:
+                der = tls.getpeercert(binary_form=True)
+    except ssl.SSLCertVerificationError as exc:
+        trusted, problem = False, exc.verify_message or str(exc)
+        der = None
+    except OSError as exc:
+        return {'error': f'The proxy could not be reached ({exc})'}
+    if der is None:
+        unchecked = ssl.create_default_context()
+        unchecked.check_hostname = False
+        unchecked.verify_mode = ssl.CERT_NONE
+        try:
+            with socket.create_connection((PROXY_HOST, 443), timeout=4) as raw:
+                with unchecked.wrap_socket(raw, server_hostname=host) as tls:
+                    der = tls.getpeercert(binary_form=True)
+        except OSError as exc:
+            return {'error': f'The proxy could not be reached ({exc})'}
+    info = {'trusted': trusted, 'problem': problem}
+    try:
+        from cryptography import x509
+        info.update(_cert_names(x509.load_der_x509_certificate(der)))
+        info['covers_host'] = _covers(info['names'], host)
+    except ImportError:
+        pass
+    return info
+
+
+def _hosting_settings() -> dict:
+    out = {}
+    for key, env in labs.HOSTING.items():
+        set_here = labs.hosting_set_in_dashboard(key)
+        out[key] = {'from': 'dashboard' if set_here else ('env' if os.environ.get(env) else 'default'),
+                    'env': env}
+    out['public_url']['value'] = labs.public_url()
+    out['allow_registration']['value'] = labs.registration_open()
+    out['require_registration_code']['value'] = labs.code_required()
+    return out
+
+
+@app.route('/api/admin/hosting')
+@require_admin
+def hosting(account):
+    public = urlsplit(labs.public_url())
+    viewing = (request.host or '').split(':')[0].lower()
+    host = public.hostname or viewing
+    admins = [a for a in directory.all_accounts() if a['is_admin']]
+    return jsonify({
+        'settings': _hosting_settings(),
+        'status': {
+            'viewing_host': viewing,
+            'public_host': public.hostname,
+            'certificate': served_certificate(host),
+            'cookies_https_only': bool(app.config.get('SESSION_COOKIE_SECURE')),
+            'hsts': public.scheme == 'https',
+            'guesses': {'allowed': GUESSES, 'minutes': GUESS_WINDOW // 60},
+            'admins': [a['username'] for a in admins],
+            'admins_on_default_password': [a['username'] for a in admins
+                                           if directory.check_password(a, MOCLO_DEFAULT_PASSWORD)],
+            'session_days': app.config['PERMANENT_SESSION_LIFETIME'].days,
+        },
+    })
+
+
+@app.route('/api/admin/hosting', methods=['PUT'])
+@require_admin
+def change_hosting(account):
+    """
+    Any of public_url (a string, '' for none), allow_registration and
+    require_registration_code (true or false); a key given as null goes back to
+    .env's value.
+    """
+    data = json_body()
+    if data is None:
+        return jsonify({'error': 'Send the settings as JSON'}), 400
+    unknown = set(data) - set(labs.HOSTING)
+    if unknown:
+        return jsonify({'error': f'Not a hosting setting: {", ".join(sorted(unknown))}'}), 400
+    changes = {}
+    for key, value in data.items():
+        if value is None:
+            changes[key] = None
+        elif key == 'public_url':
+            try:
+                changes[key] = labs.clean_public_url(str(value))
+            except ValueError as exc:
+                return jsonify({'error': str(exc)}), 400
+        elif isinstance(value, bool):
+            changes[key] = 'true' if value else 'false'
+        else:
+            return jsonify({'error': f'{key} is true or false'}), 400
+    for key, value in changes.items():
+        labs.set_hosting(key, value)
+    return jsonify({'settings': _hosting_settings()})
 
 
 # ---------------------------------------------------------------------------

@@ -2,7 +2,8 @@
 # who is signed in before every request to a tool.
 FROM alpine:3.20
 
-RUN apk add --no-cache python3 py3-flask py3-bcrypt py3-gunicorn
+# cryptography and the CA list: the Hosting tab reads the certificate the proxy serves.
+RUN apk add --no-cache python3 py3-flask py3-bcrypt py3-gunicorn py3-cryptography ca-certificates
 
 # The same user id as the tools, because it writes to the account directory in
 # MoClo's volume: a file it created as anyone else would lock them out.

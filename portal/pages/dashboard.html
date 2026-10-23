@@ -209,6 +209,162 @@ const accountTab = {
   },
 };
 
+/* --- Hosting ---------------------------------------------------------------- */
+
+/*
+ * The suite at an address of its own: what an administrator sets for it (the
+ * public address, registration), and a checklist of how it stands - the
+ * certificate the proxy serves, sign-in, administrators' passwords, backups.
+ */
+const SOURCE = { dashboard: 'set here', env: 'from .env', default: 'the default' };
+
+function check(state, title, detail) {
+  const mark = { good: '✓', warn: '!', bad: '✗', info: 'i' }[state];
+  return el('li', { class: `check ${state}` },
+    el('span', { class: 'mark', 'aria-label': { good: 'Fine', warn: 'Worth a look', bad: 'Needs fixing', info: 'Note' }[state] }, mark),
+    el('div', {}, el('strong', {}, title), detail ? el('span', { class: 'sub' }, detail) : null));
+}
+
+function daysAgo(iso) {
+  const days = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
+  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+async function lastBackup() {
+  try {
+    const res = await fetch('/backup/api/status', { cache: 'no-store' });
+    if (!res.ok) return null;
+    return (await res.json()).last_run || {};
+  } catch {
+    return null;        // the backup console is down, or not installed
+  }
+}
+
+function hostingChecks(st, settings, backup) {
+  const items = [];
+  const cert = st.certificate || {};
+  const host = st.public_host || st.viewing_host;
+  // Where people reach it.
+  if (!st.public_host) {
+    items.push(check('warn', 'No public address set',
+      'Label QR codes open whatever address the labels page was opened at, and browsers are not told to stay on https.'));
+  } else {
+    items.push(check('good', `People reach the suite at ${settings.public_url.value}`,
+      st.viewing_host !== st.public_host ? `You are looking at it through ${st.viewing_host}.` : null));
+  }
+  // The certificate the proxy serves for that name.
+  if (cert.error) {
+    items.push(check('bad', 'The certificate could not be read', cert.error));
+  } else {
+    const who = cert.issuer ? `Issued by ${cert.issuer}` : 'Issued';
+    const until = cert.expires ? `, valid until ${cert.expires.slice(0, 10)}` : '';
+    if (cert.covers_host === false) {
+      items.push(check('bad', `The certificate is not for ${host}`,
+        `It names ${(cert.names || []).join(', ') || 'other hosts'}. Browsers refuse it there: add the name to SUITE_HOSTNAMES and run ./scripts/make-certs.sh, or put in a certificate for it (docs/HTTPS.md).`));
+    } else if (cert.trusted) {
+      items.push(check('good', 'The certificate is trusted by every browser', `${who}${until}.`));
+    } else {
+      items.push(check(st.public_host ? 'bad' : 'warn', "The certificate is the lab's own",
+        `${who}${until}. Every computer and phone must trust the lab's authority first, which visitors from outside the lab will not do. `
+        + 'For a public address, use a certificate from a public authority (such as Let\u2019s Encrypt) or from UU IT (docs/HTTPS.md).'));
+    }
+    if (typeof cert.days_left === 'number' && cert.days_left < 30) {
+      items.push(check(cert.days_left < 7 ? 'bad' : 'warn', `The certificate runs out in ${Math.max(cert.days_left, 0)} days`,
+        'Renew it before then, or browsers will refuse the suite.'));
+    }
+  }
+  items.push(st.hsts
+    ? check('good', 'Browsers are told to use https only (HSTS)', `On ${st.public_host}, for a year from each visit.`)
+    : check('info', 'Browsers are not told to use https only (HSTS)', 'It is sent once the public address is set, with https.'));
+  items.push(st.cookies_https_only
+    ? check('good', 'Sign-ins travel over https only', `They last ${st.session_days} days.`)
+    : check('bad', 'Sign-in cookies are also sent over plain http', 'Set SESSION_COOKIE_SECURE=true in .env and restart the suite.'));
+  // Who can get in.
+  const reg = settings.allow_registration.value;
+  const code = settings.require_registration_code.value;
+  items.push(!reg ? check('good', 'Registration is closed', 'Administrators and lab admins add people on the dashboard.')
+    : code ? check('good', 'Registering needs a lab\u2019s registration code', 'Close registration below once the labs have their accounts.')
+      : check(st.public_host ? 'bad' : 'warn', 'Anyone can register, without a code',
+        st.public_host ? 'Anyone who finds the address can make an account and see the suite. Require codes below.' : null));
+  items.push(check('good', 'Password guessing is limited',
+    `After ${st.guesses.allowed} wrong passwords for an account, that address waits ${st.guesses.minutes} minutes; the proxy also slows anyone trying too often.`));
+  items.push(st.admins_on_default_password.length
+    ? check('bad', `Still on the published default password: ${st.admins_on_default_password.join(', ')}`,
+      'Set a new password for them on the Accounts tab, or remove the account.')
+    : check('good', `Administrators have passwords of their own`, `${st.admins.length} administrator${st.admins.length === 1 ? '' : 's'}: ${st.admins.join(', ')}.`));
+  // Backups.
+  if (backup === null) {
+    items.push(check('warn', 'The backup console could not be reached', 'Open the Backups tab to check it.'));
+  } else if (!backup.status) {
+    items.push(check('warn', 'No backup has run yet', 'Set the backup up on the Backups tab.'));
+  } else if (backup.status !== 'ok') {
+    items.push(check('bad', `The last backup ${backup.status === 'failed' ? 'failed' : `ended: ${backup.status}`}`,
+      `${backup.detail || ''} ${backup.finished_at ? `(${daysAgo(backup.finished_at)})` : ''}`.trim()));
+  } else {
+    const old = backup.finished_at && Date.now() - Date.parse(backup.finished_at) > 2 * 86400000;
+    items.push(check(old ? 'warn' : 'good', `Last backup ${backup.finished_at ? daysAgo(backup.finished_at) : 'done'}`,
+      old ? 'Backups run nightly: check the Backups tab.' : null));
+  }
+  return items;
+}
+
+const hostingTab = {
+  id: 'hosting', title: 'Hosting', icon: '🌐', section: 'admin', roles: ['admin'],
+  async show(panel) {
+    let data;
+    let backup;
+    try {
+      [data, backup] = await Promise.all([api('GET', 'api/admin/hosting'), lastBackup()]);
+    } catch (err) {
+      panel.replaceChildren(el('div', { class: 'alert bad' }, err.message));
+      return;
+    }
+    const s = data.settings;
+    const from = (key) => el('span', { class: 'hint' }, ` (${SOURCE[s[key].from]}${s[key].from === 'dashboard' ? '' : `: ${s[key].env}`})`);
+    const reset = (key) => (s[key].from === 'dashboard'
+      ? el('button', { class: 'btn small secondary', type: 'button', title: `Go back to ${s[key].env} in .env`,
+        onclick: () => act(api('PUT', 'api/admin/hosting', { [key]: null }), 'Back to the .env value.', this) }, 'Use .env')
+      : null);
+    const form = el('form', { class: 'narrow' },
+      el('div', { class: 'field' },
+        el('label', { for: 'publicUrl' }, 'Public address', from('public_url')),
+        el('div', { class: 'add-row', style: 'margin-top:0' },
+          el('input', { id: 'publicUrl', type: 'text', inputmode: 'url', placeholder: 'https://lab.example.org',
+                        value: s.public_url.value || '', autocomplete: 'off', spellcheck: 'false' }), reset('public_url')),
+        el('span', { class: 'hint' }, 'The address people type to reach the suite. Label QR codes open it, and on it browsers are '
+          + 'told to use https only. Leave it empty while the suite is reached only inside the lab.')),
+      el('div', { class: 'field' },
+        el('label', { class: 'toggle' }, el('input', { id: 'allowReg', type: 'checkbox', checked: s.allow_registration.value }),
+          ' Let people register', from('allow_registration'), reset('allow_registration')),
+        el('label', { class: 'toggle' }, el('input', { id: 'needCode', type: 'checkbox', checked: s.require_registration_code.value }),
+          ' Registering needs the lab\u2019s registration code', from('require_registration_code'), reset('require_registration_code')),
+        el('span', { class: 'hint' }, 'Closed, only administrators and lab admins add people (Labs and Accounts tabs).')),
+      el('button', { class: 'btn', type: 'submit' }, 'Save'));
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      act(api('PUT', 'api/admin/hosting', {
+        public_url: $('publicUrl').value.trim(),
+        allow_registration: $('allowReg').checked,
+        require_registration_code: $('needCode').checked,
+      }), 'Saved. It counts at once, in every tool.', this);
+    });
+    panel.replaceChildren(
+      el('div', { class: 'card' },
+        el('h2', {}, 'How the suite stands'),
+        el('p', { class: 'hint' }, 'What matters with the suite at an address of its own, checked now.'),
+        el('ul', { class: 'checks' }, hostingChecks(data.status, s, backup)),
+        el('button', { class: 'btn small secondary', type: 'button', onclick: () => this.show(panel) }, 'Check again')),
+      el('div', { class: 'card' }, el('h2', {}, 'Settings'), form),
+      el('div', { class: 'card' },
+        el('h2', {}, 'Set on the server'),
+        el('p', { class: 'hint' }, 'These stay in .env on the machine, then: docker compose up -d.'),
+        el('dl', { class: 'facts' },
+          el('dt', {}, 'SUITE_PORT'), el('dd', {}, '443, so the address needs no port'),
+          el('dt', {}, 'Certificate'), el('dd', {}, 'certs/suite.crt and suite.key, then make restart-proxy (docs/HTTPS.md)'),
+          el('dt', {}, 'Name and firewall'), el('dd', {}, 'the name pointed at this machine, and port 443 open to it (UU IT)'))));
+  },
+};
+
 /* --- Labs ------------------------------------------------------------------ */
 
 const labsTab = {
@@ -234,7 +390,7 @@ const labsTab = {
     });
     panel.replaceChildren(
       data.codes_required ? '' : el('div', { class: 'alert warn' },
-        'This server lets anyone register without a code (REQUIRE_REGISTRATION_CODE=false).'),
+        'This server lets anyone register without a code: an administrator can require codes on the Hosting tab.'),
       el('div', { class: 'card' },
         el('h2', {}, admin ? 'Labs and registration codes' : 'Your lab'),
         el('p', { class: 'hint' }, admin
@@ -562,7 +718,7 @@ async function copyText(code) {
   }
   $('who').textContent = `${me.username} · ${ROLE_NAMES[me.role]}`;
   // Signed in with the default password: only My account, to change it.
-  const own = me.must_change ? [accountTab] : [accountTab, labsTab, usersTab].filter((t) => allowed(t.roles));
+  const own = me.must_change ? [accountTab] : [accountTab, labsTab, usersTab, hostingTab].filter((t) => allowed(t.roles));
   const fromTools = me.must_change ? [] : (await toolTabs()).map(frameTab);
   // Your own things first, then administration; the suite's tabs lead each.
   tabs = [...own, ...fromTools].sort((a, b) =>

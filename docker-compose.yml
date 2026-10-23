@@ -74,8 +74,10 @@ services:
       # The first lab, created with a generated registration code on a new
       # installation.
       - DEFAULT_LAB_SOURCE=${DEFAULT_LAB_SOURCE:-}
+      # Until an administrator sets them on the dashboard's Hosting tab:
       - ALLOW_REGISTRATION=${ALLOW_REGISTRATION:-true}
       - REQUIRE_REGISTRATION_CODE=${REQUIRE_REGISTRATION_CODE:-true}
+      - SUITE_PUBLIC_URL=${SUITE_PUBLIC_URL:-}
     restart: unless-stopped
     expose:
       - "5003"

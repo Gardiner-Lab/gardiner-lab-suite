@@ -8,6 +8,19 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **The dashboard's Hosting tab** (administrators), for the suite at an address of its own: the
+  public address (label QR codes open it), whether people may register, and whether they need a
+  lab's code - set there instead of in .env, at once and for every tool. And a checklist of how the
+  suite stands: the certificate the proxy serves for that address (trusted by every browser, or the
+  lab's own; for that name; how long it has left), HSTS, sign-in cookies, registration,
+  administrators still on the published default password, and the last backup. See docs/HTTPS.md,
+  A public address.
+- **Password guessing is limited.** The proxy lets one address try to sign in or register at most 10
+  times a minute, with a burst of 10; the sign-in service stops an address after 10 wrong passwords
+  for one account, for 15 minutes, without locking the account for anyone else.
+- **HSTS on the public address**: browsers reaching the suite there are told to use https only.
+
 ## [2.10.0] - 2026-10-23
 
 | Component | Version |

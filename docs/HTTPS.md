@@ -81,6 +81,34 @@ after it, in the same file) and its key in `certs/suite.key`, then:
     touch certs/.provided      # make-certs.sh leaves them alone from now on
     make restart-proxy
 
+## A public address
+
+To reach the suite from outside the lab at a name of its own, say
+`https://lab.example.org`:
+
+1. **The name and the port.** The name points at this machine, and port 443
+   is open to it (at UU, through IT). Set `SUITE_PORT=443` in `.env`, so the
+   address needs no port, and `docker compose up -d`.
+2. **A certificate for that name** that every browser trusts: one from UU IT
+   or a public authority such as Let's Encrypt, put in as above. The lab's own
+   authority is fine inside the lab, but visitors from outside will not have
+   trusted it.
+3. **The dashboard's Hosting tab** (administrators): set the public address,
+   and decide who may register. Label QR codes then open that address, and on
+   it browsers are told to use https only (HSTS, for a year from each visit;
+   only on that name, never on `localhost` or the machine's own name). The tab
+   also checks, each time it is opened, the certificate the proxy serves for
+   the address, sign-in cookies, registration, administrators still on the
+   published default password, and the last backup.
+
+Password guessing is limited twice: the proxy lets any one address try to sign
+in or register at most 10 times a minute (a burst of 10 more), and the sign-in
+service stops an address after 10 wrong passwords for one account, for 15
+minutes (`SIGNIN_GUESSES`, `SIGNIN_GUESS_MINUTES`). Only that address waits:
+someone guessing cannot lock the person out. If the suite sits behind another
+proxy (a university load balancer), tell nginx its address first
+(`set_real_ip_from`, `real_ip_header`), or every visitor shares it.
+
 ## Checking
 
 `make check` connects over https trusting the lab's authority, so it also
