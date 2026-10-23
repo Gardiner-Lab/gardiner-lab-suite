@@ -8,6 +8,25 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.9.7] - 2026-10-23
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.14.1 |
+| Plasmid Editor | 0.6.2 |
+| Lab Notebook | 0.10.2 |
+| Seed Bank | 0.4.1 |
+| Lab Stocks | 0.4.3 |
+| Sign-in service | 2.9.7 |
+| Backup service | 2.9.7 |
+
+### Added
+- Plasmid Editor 0.6.2: the sequence a read has that the reference doesn't. Each stretch of a read
+  that did not align is listed under its alignment, with where it lies and its bases as the plasmid
+  reads them, to copy, copy as FASTA or search with NCBI BLAST; one at either end of the alignment
+  can be inserted into the reference where the read leaves it. A read that did not align at all
+  shows its whole sequence, to BLAST.
+
 ## [2.9.6] - 2026-10-22
 
 | Component | Version |
