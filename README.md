@@ -12,6 +12,7 @@ landing page that lists the tools:
 | `/notebook/` | [Lab Notebook](https://github.com/Gardiner-Lab/lab-notebook) | its own |
 | `/seeds/` | [Seed Bank](https://github.com/Gardiner-Lab/seed-bank) | its own |
 | `/stocks/` | [Lab Stocks](https://github.com/Gardiner-Lab/lab-stocks) | its own |
+| `/booking/` | [Booking](https://github.com/Gardiner-Lab/lab-booking) | its own |
 
 Each tool keeps its own published image and updates independently — nothing is
 copied into this repository. The two share a data volume so a plasmid edited in
@@ -152,6 +153,7 @@ location /editor/   -> Plasmid Editor   (URL_PREFIX=/editor)
 location /notebook/ -> Lab Notebook     (URL_PREFIX=/notebook)
 location /seeds/    -> Seed Bank        (URL_PREFIX=/seeds)
 location /stocks/   -> Lab Stocks       (URL_PREFIX=/stocks)
+location /booking/  -> Booking          (URL_PREFIX=/booking)
 location /          -> MoClo            (catch-all)
 ```
 

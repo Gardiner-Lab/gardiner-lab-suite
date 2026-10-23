@@ -41,6 +41,7 @@ services:
       - notebook
       - seeds
       - stocks
+      - booking
       - backup-console
     restart: unless-stopped
     healthcheck:
@@ -179,6 +180,8 @@ services:
       - moclo-data:/moclo:ro
       - editor-data:/editor:ro
       - suite-data:/suite:ro
+      # Bookings show on the day they are for.
+      - booking-data:/booking:ro
     environment:
       - URL_PREFIX=/notebook
       - SUITE_HOME_URL=/
@@ -187,6 +190,8 @@ services:
       # Plasmid links open in the editor; "MoClo" in the bar opens the parts.
       - EDITOR_URL=/editor
       - MOCLO_URL=/
+      - BOOKING_URL=/booking
+      - TZ=${TZ:-Europe/Amsterdam}
     restart: unless-stopped
     expose:
       - "5004"
@@ -258,6 +263,31 @@ services:
     expose:
       - "5006"
 
+  # Booking, at /booking/: rooms and equipment, booked ahead by the labs and
+  # chair groups they are shared with. It reads the account directory and the
+  # suite's labs, and writes only to its own volume; the notebook reads it.
+  booking:
+    image: ghcr.io/gardiner-lab/lab-booking:${BOOKING_VERSION:-0.1.0}
+    container_name: lab-booking
+    depends_on:
+      moclo:
+        condition: service_healthy
+    volumes:
+      - booking-data:/booking
+      - moclo-data:/moclo:ro
+      - suite-data:/suite:ro
+    environment:
+      - URL_PREFIX=/booking
+      - SUITE_HOME_URL=/
+      - SUITE_LOGIN_URL=/account/login
+      - SUITE_LOGOUT_URL=/account/logout
+      - NOTEBOOK_URL=/notebook
+      # The lab's time: opening hours, and which day a booking is on.
+      - TZ=${TZ:-Europe/Amsterdam}
+    restart: unless-stopped
+    expose:
+      - "5007"
+
   backup:
     image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.11.0}
     container_name: lab-backup
@@ -269,6 +299,7 @@ services:
       - notebook-data:/notebook:ro
       - seeds-data:/seeds:ro
       - stocks-data:/stocks:ro
+      - booking-data:/booking:ro
       # The network drive, mounted on the host. See docs/BACKUP.md.
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
@@ -303,6 +334,7 @@ services:
       - notebook-data:/notebook
       - seeds-data:/seeds
       - stocks-data:/stocks
+      - booking-data:/booking
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
@@ -337,6 +369,7 @@ services:
       - notebook-data:/notebook
       - seeds-data:/seeds
       - stocks-data:/stocks
+      - booking-data:/booking
       - ${BACKUP_ROOT:-/mnt}:/mnt
       - ${BACKUP_DEST:-./backups}:/backup
       - backup-config:/config-store
@@ -356,6 +389,8 @@ volumes:
   seeds-data:
   # Lab stocks: glycerol stocks, primers, and their photos and files.
   stocks-data:
+  # Booking: rooms and equipment, and their bookings.
+  booking-data:
   # Backup settings chosen in the console, shared by the console, the
   # scheduler and the restore service.
   backup-config:

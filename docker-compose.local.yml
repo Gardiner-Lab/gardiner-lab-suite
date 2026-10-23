@@ -46,6 +46,12 @@ services:
     image: lab-stocks:local
     pull_policy: never
 
+  booking:
+    build:
+      context: ${BOOKING_SRC:-../lab-booking}
+    image: lab-booking:local
+    pull_policy: never
+
   backup:
     build: ./backup
     image: lab-suite-backup:local
