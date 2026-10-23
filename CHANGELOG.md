@@ -8,6 +8,18 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-10-23
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.15.0 |
+| Plasmid Editor | 0.8.0 |
+| Lab Notebook | 0.13.0 |
+| Seed Bank | 0.5.1 |
+| Lab Stocks | 0.5.1 |
+| Sign-in service | 2.11.0 |
+| Backup service | 2.11.0 |
+
 ### Added
 - **The dashboard's Hosting tab** (administrators), for the suite at an address of its own: the
   public address (label QR codes open it), whether people may register, and whether they need a
@@ -20,6 +32,7 @@ and the project uses [semantic versioning](https://semver.org/).
   times a minute, with a burst of 10; the sign-in service stops an address after 10 wrong passwords
   for one account, for 15 minutes, without locking the account for anyone else.
 - **HSTS on the public address**: browsers reaching the suite there are told to use https only.
+- Label QR codes in Lab Stocks and the Seed Bank (0.5.1) open the public address set there.
 
 ## [2.10.0] - 2026-10-23
 
