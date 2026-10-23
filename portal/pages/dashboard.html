@@ -5,14 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard · Trellis Tools</title>
 <link rel="icon" type="image/svg+xml" href="/account/trellis.svg">
+<link rel="stylesheet" href="trellis.css">
 <link rel="stylesheet" href="style.css">
 </head>
-<body class="dashboard">
-<header class="topbar">
-  <div class="wrap">
-    <a class="home" href="/">&larr; Trellis Tools</a>
-    <div class="who"><span id="who"></span><a href="logout">Sign out</a></div>
-  </div>
+<body class="tt dashboard">
+<header class="tt-bar">
+  <a class="tt-home" href="/" title="All of Trellis Tools"><img src="trellis.svg" alt=""><span>Trellis Tools</span></a>
+  <a class="tt-module" href="./"><img src="icons/dashboard.svg" alt="">Dashboard</a>
+  <span class="tt-user" id="who"></span>
+  <a class="tt-logout" href="logout">Sign out</a>
 </header>
 
 <nav class="tabbar" aria-label="Dashboard">
@@ -33,7 +34,7 @@
  * the tool's navigation left out. Adding a tool with a manifest adds its tabs
  * here; nothing in this page changes.
  *
- *   { "tabs": [ { "id": "moclo-parts", "title": "My parts", "icon": "🧩",
+ *   { "tabs": [ { "id": "moclo-parts", "title": "My parts", "icon": "🧩", "glyph": "part",
  *                 "section": "me" | "admin", "roles": ["admin"],
  *                 "src": "/dashboard?embed=1&tab=parts" } ] }
  *
@@ -160,7 +161,9 @@ function buildTabs() {
       tab.button = el('button', { class: 'tab', role: 'tab', type: 'button', id: `tab-${tab.id}`,
                                   'aria-controls': `panel-${tab.id}`,
                                   onclick: () => select(tab.id) },
-        tab.icon ? el('span', { 'aria-hidden': 'true' }, tab.icon) : null, tab.title);
+        tab.glyph && /^[a-z][a-z0-9-]{0,30}$/.test(tab.glyph)
+          ? el('img', { class: 'tt-glyph', src: `glyphs/${tab.glyph}.svg`, alt: '' })
+          : tab.icon ? el('span', { 'aria-hidden': 'true' }, tab.icon) : null, tab.title);
       tab.panel = el('section', { class: tab.src ? 'panel framed' : 'panel', role: 'tabpanel',
                                   id: `panel-${tab.id}`, 'aria-labelledby': `tab-${tab.id}`, hidden: true });
       bar.append(tab.button);
@@ -174,7 +177,7 @@ window.addEventListener('hashchange', () => select(location.hash.slice(1)));
 /* --- My account ------------------------------------------------------------ */
 
 const accountTab = {
-  id: 'account', title: 'My account', icon: '👤', section: 'me',
+  id: 'account', title: 'My account', glyph: 'person', section: 'me',
   show(panel) {
     const form = el('form', { class: 'narrow' },
       el('div', { class: 'field' }, el('label', { for: 'pwCurrent' }, 'Current password'),
@@ -309,7 +312,7 @@ function hostingChecks(st, settings, backup) {
 }
 
 const hostingTab = {
-  id: 'hosting', title: 'Hosting', icon: '🌐', section: 'admin', roles: ['admin'],
+  id: 'hosting', title: 'Hosting', glyph: 'shield', section: 'admin', roles: ['admin'],
   async show(panel) {
     let data;
     let backup;
@@ -368,7 +371,7 @@ const hostingTab = {
 /* --- Labs ------------------------------------------------------------------ */
 
 const labsTab = {
-  id: 'labs', title: 'Labs', icon: '🏷️', section: 'admin', roles: ['admin', 'lab_admin', 'lab_lead'],
+  id: 'labs', title: 'Labs', glyph: 'lab', section: 'admin', roles: ['admin', 'lab_admin', 'lab_lead'],
   async show(panel) {
     let data;
     try { data = await api('GET', 'api/admin/overview'); } catch (err) {
@@ -611,7 +614,7 @@ function renameLab(lab, cell, tab) {
 /* --- Accounts ---------------------------------------------------------------- */
 
 const usersTab = {
-  id: 'users', title: 'Accounts', icon: '👥', section: 'admin', roles: ['admin'],
+  id: 'users', title: 'Accounts', glyph: 'people', section: 'admin', roles: ['admin'],
   async show(panel) {
     let data;
     try { data = await api('GET', 'api/admin/overview'); } catch (err) {

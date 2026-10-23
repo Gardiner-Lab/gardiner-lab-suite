@@ -35,6 +35,7 @@ Three things shape the design:
 
 import hashlib
 import os
+import re
 import socket
 import ssl
 import time
@@ -1039,6 +1040,30 @@ def change_hosting(account):
 @app.route('/style.css')
 def stylesheet():
     return send_file(PAGES / 'style.css', max_age=0)
+
+
+@app.route('/glyphs/<name>.svg')
+def glyph(name):
+    """Small icons for inside pages (docs/icon/make_glyphs.py): the dashboard's tabs."""
+    path = PAGES / 'glyphs' / f'{name}.svg'
+    if not re.fullmatch(r'[a-z][a-z0-9-]{0,30}', name) or not path.is_file():
+        return jsonify({'error': 'No such glyph'}), 404
+    return send_file(path, mimetype='image/svg+xml', max_age=0)
+
+
+@app.route('/icons/<name>.svg')
+def tool_icon(name):
+    """The tools' icons, in Trellis Tools' style (docs/icon/make_tool_icons.py draws them)."""
+    path = PAGES / 'icons' / f'{name}.svg'
+    if not re.fullmatch(r'[a-z][a-z0-9-]{0,30}', name) or not path.is_file():
+        return jsonify({'error': 'No such icon'}), 404
+    return send_file(path, mimetype='image/svg+xml', max_age=0)
+
+
+@app.route('/trellis.css')
+def trellis_css():
+    """Trellis Tools' look (design/trellis.css), for the suite's own pages."""
+    return send_file(PAGES / 'trellis.css', mimetype='text/css', max_age=0)
 
 
 @app.route('/trellis.svg')

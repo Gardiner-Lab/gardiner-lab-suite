@@ -8,6 +8,26 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Trellis Tools' look** (design/trellis.css): one palette - green for what you do, brown for structure, on
+  warm paper-white - and one header for every module: Trellis Tools, then the module's icon and name, its
+  tabs, the person and Log out. design/sync.sh copies it, with the icons, into each module. The landing
+  page, sign-in, registration, the dashboard and the backup console use it; each tool's card on the
+  landing page is edged in its own earthy accent (moss olive, teal, ochre, green, slate, plum).
+- Small icons for inside the modules, in place of emoji (docs/icon/make_glyphs.py; static/trellis/glyphs/).
+- The look's green is a shade darker, and the ochre too, so text on them and them on white read easily
+  (WCAG AA); its element rules only fill in what a module leaves unset.
+- The dashboard's tabs show glyphs: a tab may name one ("glyph" in a tool's suite-manifest.json; its "icon"
+  emoji stays as the fallback). Glyphs are served at /account/glyphs/.
+- The backup console in the same look, its two emoji glyphs.
+
+### Changed
+- The tools' icons on the landing page are drawn in Trellis Tools' style - brown and green, round lines -
+  instead of emoji: DNA parts with sticky ends (MoClo), a plasmid map (Plasmid Editor), a notebook with a
+  leaf (Lab Notebook), a sprouting seed (Seed Bank), a tube (Lab Stocks), a ticked calendar (Booking), a
+  key (Dashboard) and an archive box (Backups). Served at /account/icons/; drawn by
+  docs/icon/make_tool_icons.py. A tool in tools.json names its icon as "image"; "icon" stays as the fallback.
+
 ## [2.14.0] - 2026-10-23
 
 | Component | Version |

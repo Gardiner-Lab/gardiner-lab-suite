@@ -804,7 +804,7 @@ def index():
 def suite_manifest():
     """The tab this console adds to the suite's dashboard."""
     return jsonify({'tool': 'Backups', 'tabs': [
-        {'id': 'backups', 'title': 'Backups', 'icon': '💾', 'section': 'admin',
+        {'id': 'backups', 'title': 'Backups', 'icon': '💾', 'glyph': 'archive', 'section': 'admin',
          'roles': ['admin'], 'src': '/backup/?embed=1'}]})
 
 

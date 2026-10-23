@@ -4,24 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Backups · Trellis Tools</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128190;</text></svg>">
+<link rel="icon" type="image/svg+xml" href="/account/icons/backups.svg">
+<link rel="stylesheet" href="/account/trellis.css">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --primary: #2563eb; --primary-hover: #1d4ed8; --text: #1f2937; --muted: #6b7280;
-    --border: #e5e7eb; --bg: #f9fafb; --card: #ffffff; --ok: #10b981; --bad: #ef4444;
-    --warn: #f59e0b;
-    --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -2px rgba(0,0,0,.05);
+    /* Trellis Tools' palette (/account/trellis.css) */
+    --primary: var(--tt-green); --primary-hover: var(--tt-green-dark); --text: var(--tt-text); --muted: var(--tt-muted);
+    --border: var(--tt-border); --bg: var(--tt-bg); --card: var(--tt-card); --ok: var(--tt-ok); --bad: var(--tt-danger);
+    --warn: var(--tt-warn);
+    --shadow: var(--tt-shadow);
+    --shadow-lg: var(--tt-shadow-lg);
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  body { font-family: var(--tt-font);
          line-height: 1.6; color: var(--text); background: var(--bg); min-height: 100vh; }
   .wrap { max-width: 56rem; margin: 0 auto; padding: 0 1rem 3rem; }
-  header { background: var(--card); border-bottom: 1px solid var(--border); padding: .9rem 0; margin-bottom: 1.5rem; }
-  header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 0; }
-  .brand { font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: .4rem; text-decoration: none; }
-  .who { font-size: .85rem; color: var(--muted); display: flex; gap: .6rem; align-items: center; }
+  header.tt-bar { margin-bottom: 1.5rem; }
+  .who { font-size: .85rem; color: var(--muted); display: flex; gap: .6rem; align-items: center; margin-left: auto; }
 
   .card { background: var(--card); border: 1px solid var(--border); border-radius: .5rem;
           box-shadow: var(--shadow); padding: 1.25rem; margin-bottom: 1.25rem; }
@@ -31,7 +31,7 @@
   label { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); margin-bottom: .25rem; }
   input, select { width: 100%; padding: .45rem .6rem; border: 1px solid var(--border);
                   border-radius: .375rem; font-size: .9rem; font-family: inherit; color: inherit; }
-  input:focus, select:focus { outline: 2px solid #bfdbfe; outline-offset: -1px; border-color: var(--primary); }
+  input:focus, select:focus { outline: none; box-shadow: var(--tt-focus); border-color: var(--primary); }
   .row { display: flex; gap: .75rem; flex-wrap: wrap; }
   .row > div { flex: 1; min-width: 6rem; }
   .field { margin-bottom: .85rem; }
@@ -49,10 +49,10 @@
   .btns { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
 
   .alert { padding: .7rem .9rem; border-radius: .375rem; margin-bottom: 1rem; font-size: .9rem; border: 1px solid transparent; }
-  .alert-bad { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
-  .alert-ok { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
-  .alert-warn { background: #fffbeb; color: #92400e; border-color: #fde68a; }
-  .alert-info { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+  .alert-bad { background: var(--tt-danger-soft); color: var(--tt-danger); border-color: #f1c2bd; }
+  .alert-ok { background: var(--tt-green-soft); color: var(--tt-green-ink); border-color: var(--tt-green-line); }
+  .alert-warn { background: var(--tt-warn-soft); color: var(--tt-warn); border-color: #ecd5a0; }
+  .alert-info { background: var(--tt-sunk); color: var(--tt-text); border-color: var(--tt-border); }
 
   .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; }
   .stat { background: var(--bg); border-radius: .375rem; padding: .6rem .75rem; }
@@ -69,7 +69,7 @@
   .mono { font-family: var(--mono); font-size: .8rem; }
   .scroll { max-height: 22rem; overflow: auto; }
 
-  pre.out { background: #111827; color: #e5e7eb; padding: .75rem; border-radius: .375rem;
+  pre.out { background: var(--tt-text); color: #e5e7eb; padding: .75rem; border-radius: .375rem;
             font-size: .75rem; overflow: auto; max-height: 14rem; white-space: pre-wrap; }
   .login { max-width: 22rem; margin: 3rem auto; }
   .modal-back { position: fixed; inset: 0; background: rgba(17,24,39,.5); display: flex;
@@ -90,16 +90,15 @@
   body.embedded #main { padding-top: 1.5rem; }
 </style>
 </head>
-<body>
+<body class="tt">
 <script>
   // In the Backups tab of the suite's dashboard, which has its own header.
   if (new URLSearchParams(location.search).get('embed') === '1') document.body.classList.add('embedded');
 </script>
-<header>
-  <div class="wrap">
-    <a class="brand" href="/">&#128190; Backups</a>
-    <div class="who" id="who"></div>
-  </div>
+<header class="tt-bar">
+  <a class="tt-home" href="/" title="All of Trellis Tools"><img src="/account/trellis.svg" alt=""><span>Trellis Tools</span></a>
+  <a class="tt-module" href="/backup/"><img src="/account/icons/backups.svg" alt="">Backups</a>
+  <div class="who" id="who"></div>
 </header>
 
 <div class="wrap" id="main"></div>
@@ -184,7 +183,7 @@ function renderConsole() {
   const last = s.last_run || {};
   const isShare = s.destination_type === 'smb';
 
-  $('#who').innerHTML = `<span>👤 ${esc(s.username || '')}</span>
+  $('#who').innerHTML = `<span><img class="tt-glyph" src="/account/glyphs/person.svg" alt=""> ${esc(s.username || '')}</span>
     <button class="btn btn-sm btn-secondary" id="logout">Sign out</button>`;
 
   $('#main').innerHTML = `
@@ -422,7 +421,7 @@ function openBrowser(startAt) {
         const tag = e.archives ? `<span class="hint">${e.archives} archive(s)</span>`
                   : (e.exists === false ? '<span class="hint">not mounted</span>' : '');
         rows.push(`<tr>
-          <td><a href="#" data-go="${esc(e.path)}">📁 ${esc(e.name)}</a></td>
+          <td><a href="#" data-go="${esc(e.path)}"><img class="tt-glyph" src="/account/glyphs/folder.svg" alt=""> ${esc(e.name)}</a></td>
           <td style="text-align:right">${tag}</td></tr>`);
       }
       $('#browseRows', back).innerHTML = rows.join('');
