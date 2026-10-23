@@ -8,6 +8,10 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-10-23
+
+Pins MoClo 1.16.0, Plasmid Editor 0.9.0, Lab Notebook 0.16.0, Seed Bank 0.6.0, Lab Stocks 0.6.0 and Lab Booking 0.2.0: Trellis Tools' look in every module.
+
 ### Added
 - **Trellis Tools' look** (design/trellis.css): one palette - green for what you do, brown for structure, on
   warm paper-white - and one header for every module: Trellis Tools, then the module's icon and name, its
