@@ -32,6 +32,7 @@ import sqlite3
 import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
+from urllib.parse import urlsplit
 
 # A lab admin is a lab lead who also adds people to the lab and takes them out.
 # Stored as a lab lead with members.lab_admin set, so every tool, which reads
@@ -84,6 +85,13 @@ CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+-- Wrong passwords, by account and address, for limiting guesses (portal.py).
+CREATE TABLE IF NOT EXISTS signin_failures (
+    username TEXT NOT NULL,
+    address TEXT NOT NULL,
+    at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS signin_failures_by ON signin_failures (username, address, at);
 """
 
 
@@ -116,13 +124,82 @@ def normalise(code: str) -> str:
     return _clean(code).lower()
 
 
+# ---------------------------------------------------------------------------
+# Hosting settings
+# ---------------------------------------------------------------------------
+#
+# What an administrator sets on the dashboard's Hosting tab, kept in settings
+# under these keys. Until they set one, .env's value counts (the variable
+# named), so an installation behaves as before until someone changes it there.
+
+HOSTING = {
+    'public_url': 'SUITE_PUBLIC_URL',
+    'allow_registration': 'ALLOW_REGISTRATION',
+    'require_registration_code': 'REQUIRE_REGISTRATION_CODE',
+}
+
+
+def _no(value: str) -> bool:
+    return value.lower() in ('0', 'false', 'no')
+
+
+def hosting_setting(key: str) -> Optional[str]:
+    """The administrator's value, else .env's, else None."""
+    try:
+        with connect() as conn:
+            value = _setting(conn, f'hosting.{key}')
+    except sqlite3.Error:
+        value = None
+    return value if value is not None else os.environ.get(HOSTING[key])
+
+
+def hosting_set_in_dashboard(key: str) -> bool:
+    with connect() as conn:
+        return _setting(conn, f'hosting.{key}') is not None
+
+
+def set_hosting(key: str, value: Optional[str]) -> None:
+    """Sets one; None goes back to .env's."""
+    if key not in HOSTING:
+        raise KeyError(key)
+    with connect() as conn:
+        if value is None:
+            conn.execute('DELETE FROM settings WHERE key = ?', (f'hosting.{key}',))
+        else:
+            conn.execute('INSERT INTO settings (key, value) VALUES (?, ?) '
+                         'ON CONFLICT(key) DO UPDATE SET value = excluded.value', (f'hosting.{key}', value))
+
+
 def code_required() -> bool:
-    """REQUIRE_REGISTRATION_CODE=false turns codes off entirely."""
-    return os.environ.get('REQUIRE_REGISTRATION_CODE', 'true').lower() not in ('0', 'false', 'no')
+    """Off (the Hosting tab, or REQUIRE_REGISTRATION_CODE=false) turns codes off entirely."""
+    return not _no(hosting_setting('require_registration_code') or 'true')
 
 
 def registration_open() -> bool:
-    return os.environ.get('ALLOW_REGISTRATION', 'true').lower() not in ('0', 'false', 'no')
+    return not _no(hosting_setting('allow_registration') or 'true')
+
+
+def clean_public_url(url: str) -> str:
+    """
+    The suite's address as people reach it: https, a host, and at most a path
+    (the suite at /, or behind a prefix). '' clears it.
+    """
+    url = (url or '').strip()
+    if not url:
+        return ''
+    parts = urlsplit(url if '://' in url else f'https://{url}')
+    if parts.scheme not in ('https', 'http') or not parts.hostname or parts.query or parts.fragment \
+            or parts.username or parts.password or any(c.isspace() for c in url):
+        raise ValueError('Give the address as people reach it, e.g. https://lab.example.org')
+    return f"{parts.scheme}://{parts.netloc.lower()}{parts.path.rstrip('/')}"
+
+
+def public_url() -> str:
+    """Where people reach the suite (the Hosting tab, or SUITE_PUBLIC_URL); '' when unset."""
+    try:
+        return clean_public_url(hosting_setting('public_url') or '')
+    except ValueError:
+        return ''
 
 
 def default_lab_name() -> str:
@@ -431,7 +508,10 @@ def leave_lab(username: str, lab_id: Optional[str] = None) -> None:
 # ---------------------------------------------------------------------------
 
 def _setting(conn, key: str) -> Optional[str]:
-    row = conn.execute('SELECT value FROM settings WHERE key = ?', (key,)).fetchone()
+    try:
+        row = conn.execute('SELECT value FROM settings WHERE key = ?', (key,)).fetchone()
+    except sqlite3.OperationalError:     # before prepare() made the table
+        return None
     return row['value'] if row else None
 
 
