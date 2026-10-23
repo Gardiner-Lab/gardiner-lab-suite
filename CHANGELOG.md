@@ -8,6 +8,19 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-10-23
+
+| Component | Version |
+| --- | --- |
+| MoClo Library Tool | 1.15.1 |
+| Plasmid Editor | 0.8.1 |
+| Lab Notebook | 0.15.1 |
+| Seed Bank | 0.5.3 |
+| Lab Stocks | 0.5.3 |
+| Booking | 0.1.2 |
+| Sign-in service | 2.14.0 |
+| Backup service | 2.14.0 |
+
 ### Changed
 - **The suite is called Trellis Tools**: the landing page, sign-in, registration, the dashboard and the
   backup console, and the docs. The landing page says it is made by the Gardiner Lab. The repositories,
