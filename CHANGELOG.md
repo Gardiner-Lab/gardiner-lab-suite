@@ -8,6 +8,11 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-10-24
+
+Pins Seed Bank 0.7.0 (where plants grow, phenotypes by treatment, family trees, chair groups), Lab Stocks 0.7.0
+and Plasmid Editor 0.10.0 (links to family trees).
+
 ### Added
 - **A teaching demo** (demo/README.md): `make demo` makes the Demo Chair Group with Demo Lab and Demo Partner Lab,
   the shared accounts `demo` (lab admin) and `demo-partner` (password `trellis-demo`), and fills them through the
