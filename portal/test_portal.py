@@ -505,6 +505,30 @@ def test_changing_your_own_password_keeps_you_signed_in(portal):
     assert sign_in(module.app.test_client(), 'alice', 'brand-new-pw').status_code == 200
 
 
+def test_a_teaching_account_keeps_its_password(portal):
+    module, client, _ = portal
+    module.labs.set_teaching_accounts(['alice'])
+    sign_in(client, 'alice', 'alice-password')
+    me = client.get('/api/session').get_json()
+    assert me['user']['teaching'] is True and me['demo'] is None          # not offered on the sign-in page
+    refused = client.post('/api/account/password', json={'current': 'alice-password', 'new': 'brand-new-pw'})
+    assert refused.status_code == 403 and 'shared teaching account' in refused.get_json()['error']
+    assert sign_in(module.app.test_client(), 'alice', 'alice-password').status_code == 200
+    # Others change theirs as ever.
+    boss = module.app.test_client()
+    sign_in(boss, 'boss', 'boss-password')
+    assert boss.get('/api/session').get_json()['user']['teaching'] is False
+
+
+def test_the_sign_in_page_offers_the_demo_only_when_asked(portal):
+    module, client, _ = portal
+    assert client.get('/api/session').get_json()['demo'] is None
+    module.labs.set_teaching_accounts(['demo', 'demo-partner'], 'trellis-demo')
+    assert client.get('/api/session').get_json()['demo'] == {'username': 'demo', 'password': 'trellis-demo'}
+    module.labs.set_teaching_accounts(['demo', 'demo-partner'])          # loaded again without DEMO_SHOW_ON_LOGIN
+    assert client.get('/api/session').get_json()['demo'] is None
+
+
 def test_an_administrator_adds_and_removes_accounts(portal):
     module, client, moclo = portal
     lab = gardiner(module)

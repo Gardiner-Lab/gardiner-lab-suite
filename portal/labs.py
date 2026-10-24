@@ -179,6 +179,39 @@ def set_hosting(key: str, value: Optional[str]) -> None:
                          'ON CONFLICT(key) DO UPDATE SET value = excluded.value', (f'hosting.{key}', value))
 
 
+def teaching_accounts() -> set:
+    """Shared accounts for teaching (demo/accounts.py): their passwords are not changed from the dashboard."""
+    try:
+        with connect() as conn:
+            value = _setting(conn, 'demo.accounts')
+    except sqlite3.Error:
+        value = None
+    return {u for u in (value or '').split(',') if u}
+
+
+def demo_login() -> Optional[dict]:
+    """The demo login the sign-in page offers, when its operator chose to (DEMO_SHOW_ON_LOGIN=1), else None."""
+    try:
+        with connect() as conn:
+            password = _setting(conn, 'demo.login_password')
+    except sqlite3.Error:
+        return None
+    accounts = sorted(teaching_accounts())
+    return {'username': 'demo' if 'demo' in accounts else accounts[0], 'password': password}         if password and accounts else None
+
+
+def set_teaching_accounts(usernames: List[str], shown_password: Optional[str] = None) -> None:
+    """Marks these accounts as shared teaching accounts; a password given is offered on the sign-in page."""
+    with connect() as conn:
+        conn.execute("INSERT INTO settings (key, value) VALUES ('demo.accounts', ?) "
+                     'ON CONFLICT(key) DO UPDATE SET value = excluded.value', (','.join(usernames),))
+        if shown_password:
+            conn.execute("INSERT INTO settings (key, value) VALUES ('demo.login_password', ?) "
+                         'ON CONFLICT(key) DO UPDATE SET value = excluded.value', (shown_password,))
+        else:
+            conn.execute("DELETE FROM settings WHERE key = 'demo.login_password'")
+
+
 def code_required() -> bool:
     """Off (the Hosting tab, or REQUIRE_REGISTRATION_CODE=false) turns codes off entirely."""
     return not _no(hosting_setting('require_registration_code') or 'true')
