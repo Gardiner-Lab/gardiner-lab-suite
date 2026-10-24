@@ -141,3 +141,6 @@ td.center { text-align: center; }
 tr.archived td { color: var(--muted); }
 .left-list { margin-top: 1rem; }
 .left-list summary { cursor: pointer; font-weight: 600; font-size: .9rem; color: var(--muted); }
+
+/* A button that looks like a link (the sign-in page's "Fill it in"). */
+.btn-link { background: none; border: 0; padding: 0; color: var(--tt-link, var(--tt-green)); text-decoration: underline; cursor: pointer; font: inherit; }

@@ -1,4 +1,4 @@
-.PHONY: help install up down logs pull update restart-proxy local check certs         backup backup-init backup-check backup-list backup-logs restore restore-check
+.PHONY: help install up down logs pull update restart-proxy local check certs         backup backup-init backup-check backup-list backup-logs restore restore-check demo demo-reset demo-wipe
 
 help:
 	@echo "Trellis Tools - available commands"
@@ -21,6 +21,11 @@ help:
 	@echo "  backup-logs   - Follow the backup container's log"
 	@echo "  restore-check - Verify an archive without changing anything (ARCHIVE=...)"
 	@echo "  restore       - Restore from an archive (ARCHIVE=latest), stack stopped"
+	@echo ""
+	@echo "Teaching demo (demo/README.md)"
+	@echo "  demo          - Make the demo labs and accounts and fill them with example work"
+	@echo "  demo-reset    - Remove the demo's data and fill it again (e.g. before a class)"
+	@echo "  demo-wipe     - Remove the demo's data and leave it empty"
 
 install:
 	./install.sh
@@ -79,3 +84,12 @@ restore:
 	docker compose --profile restore run --rm restore restore $(or $(ARCHIVE),latest)
 	docker compose start moclo editor
 	@echo "Applications restarted."
+
+demo:
+	demo/demo.sh load
+
+demo-reset:
+	demo/demo.sh reset
+
+demo-wipe:
+	demo/demo.sh wipe

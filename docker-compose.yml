@@ -145,6 +145,8 @@ services:
       - STOCKS_URL=/stocks
       # The Lab Notebook: a virtual digest's gel and fragments go into a day's page there.
       - NOTEBOOK_URL=/notebook
+      # The Seed Bank: a plasmid's family tree (the lines made with it, their seeds).
+      - SEEDS_URL=/seeds
       # The launch page, linked from the editor's navigation bar.
       - SUITE_HOME_URL=/
       # Signed in by the suite, as MoClo is. Registration, labs and roles are
@@ -212,6 +214,8 @@ services:
       - editor-data:/editor:ro
       - notebook-data:/notebook:ro
       - suite-data:/suite:ro
+      # Glycerol stocks, for a family tree (plasmid -> stocks -> lines -> seeds).
+      - stocks-data:/stocks:ro
     environment:
       - URL_PREFIX=/seeds
       - SUITE_HOME_URL=/

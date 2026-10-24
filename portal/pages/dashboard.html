@@ -208,7 +208,9 @@ const accountTab = {
         el('dt', {}, 'Username'), el('dd', {}, me.username),
         el('dt', {}, 'Lab'), el('dd', {}, me.lab || 'None yet: ask an administrator'),
         el('dt', {}, 'Role'), el('dd', {}, ROLE_NAMES[me.role])),
-      el('h3', {}, 'Change your password'), form));
+      me.teaching ? el('p', { class: 'hint' }, 'This is a shared teaching account: its password stays as it is, ',
+        'so everyone can sign in with it. Its data is set back to the demo from time to time.')
+        : [el('h3', {}, 'Change your password'), form]));
   },
 };
 

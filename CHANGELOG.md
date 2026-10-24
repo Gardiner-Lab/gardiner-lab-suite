@@ -8,6 +8,21 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **A teaching demo** (demo/README.md): `make demo` makes the Demo Chair Group with Demo Lab and Demo Partner Lab,
+  the shared accounts `demo` (lab admin) and `demo-partner` (password `trellis-demo`), and fills them through the
+  tools' own API with one connected piece of work in every tool: MoClo cassettes and plasmids, the plasmids
+  sequenced and confirmed in the editor, glycerol stocks, primers, chemicals, antibodies and orders, a transgenic
+  line from dipping to a homozygous T3 with a scored drought trial and a cross with the partner lab, notebook
+  pages linking all of it with a protocol and a shared page, and bookings. `make demo-reset` removes only the
+  demo's data and loads it again; `make demo-wipe` removes it.
+- Shared teaching accounts: their passwords cannot be changed from the dashboard. With DEMO_SHOW_ON_LOGIN=1 the
+  sign-in page offers the demo login.
+
+### Changed
+- The Seed Bank reads Lab Stocks' database (read-only), for family trees from a plasmid through its glycerol
+  stocks to the lines and seeds made with it; the Plasmid Editor gets SEEDS_URL=/seeds, for its link there.
+
 ## [2.15.0] - 2026-10-23
 
 Pins MoClo 1.16.0, Plasmid Editor 0.9.0, Lab Notebook 0.16.0, Seed Bank 0.6.0, Lab Stocks 0.6.0 and Lab Booking 0.2.0: Trellis Tools' look in every module.

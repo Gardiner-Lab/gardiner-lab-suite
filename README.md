@@ -282,6 +282,13 @@ running/unavailable dot on each card.
 Anything listed under `planned` is shown as a greyed-out card, which is a
 convenient way to signal what is coming.
 
+## A teaching demo
+
+`make demo` makes a demo chair group with two labs and two shared accounts
+(`demo` / `demo-partner`, password `trellis-demo`) and fills them with one
+connected piece of work in every tool, for people learning how things work.
+`make demo-reset` sets it back before a class. See [demo/README.md](demo/README.md).
+
 ## Configuration
 
 | Variable | Default | Purpose |

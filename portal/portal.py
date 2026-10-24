@@ -299,9 +299,12 @@ def session_status():
         mine = labs.labs_of(account['username'])
         user = {'username': account['username'], 'is_admin': account['is_admin'],
                 'role': role_of(account), 'lab': mine[0]['lab'] if mine else None,
-                'labs': [{'lab': m['lab'], 'role': m['role']} for m in mine], 'must_change': must_change()}
+                'labs': [{'lab': m['lab'], 'role': m['role']} for m in mine], 'must_change': must_change(),
+                'teaching': account['username'] in labs.teaching_accounts()}
     return jsonify({'authenticated': account is not None, 'user': user,
-                    'registration_open': labs.registration_open(), 'version': APP_VERSION})
+                    'registration_open': labs.registration_open(), 'version': APP_VERSION,
+                    # The demo login, for the sign-in page, when the operator offers it (demo/README.md).
+                    'demo': labs.demo_login()})
 
 
 @app.route('/login', methods=['GET'])
@@ -457,6 +460,9 @@ def change_password():
     account = signed_in_account()
     if account is None:
         return jsonify({'error': 'Sign in first'}), 401
+    if account['username'] in labs.teaching_accounts():
+        return jsonify({'error': 'This is a shared teaching account: its password stays as it is, '
+                                 'so everyone can sign in with it'}), 403
     data = json_body() or {}
     if not directory.check_password(account, str(data.get('current') or '')):
         time.sleep(1)

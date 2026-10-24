@@ -14,6 +14,7 @@
   <p class="hint lead">Sign in, or create an account, to use the lab's tools. One account works in
     all of them.</p>
   <div id="alert" role="alert"></div>
+  <div id="demo"></div>
   <form id="form">
     <div class="field">
       <label for="username">Username</label>
@@ -42,6 +43,23 @@ function showError(message) {
 
 fetch('api/session', { cache: 'no-store' }).then((r) => r.json()).then((s) => {
   if (!s.registration_open) document.getElementById('register').hidden = true;
+  // A server with a teaching account may offer it here.
+  if (s.demo) {
+    const box = document.createElement('div');
+    box.className = 'alert good';
+    const use = document.createElement('button');
+    use.type = 'button';
+    use.className = 'btn-link';
+    use.textContent = 'Fill it in';
+    use.addEventListener('click', () => {
+      document.getElementById('username').value = s.demo.username;
+      document.getElementById('password').value = s.demo.password;
+      document.getElementById('submit').focus();
+    });
+    box.append('Just looking? Try the demo lab: username ', Object.assign(document.createElement('b'), { textContent: s.demo.username }),
+      ', password ', Object.assign(document.createElement('b'), { textContent: s.demo.password }), '. ', use);
+    document.getElementById('demo').replaceChildren(box);
+  }
 }).catch(() => {});
 
 document.getElementById('form').addEventListener('submit', async (e) => {
