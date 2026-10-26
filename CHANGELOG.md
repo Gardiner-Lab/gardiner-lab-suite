@@ -8,6 +8,21 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.16.2] - 2026-10-26
+
+Pins Lab Stocks 0.8.0.
+
+### Fixed
+- Lab Stocks 0.8.0: bringing over many glycerol stocks or tubes from eLab could stop part way and leave them
+  unlinked, after which every round tried to make them in eLab ("There is no free space at position ...").
+  Now they come over 25 at a time, linked as they are made, with a progress bar; a round links one whose
+  place in eLab holds an unlinked sample of its name, rather than making it, so those left unlinked mend
+  themselves; and bringing over again links what was left instead of making it twice.
+
+### Changed
+- Lab Stocks 0.8.0: what is brought over from eLab is made by its owner in eLab; eLab is right, and the
+  owners are looked up every hour and corrected here when they differ.
+
 ## [2.16.1] - 2026-10-26
 
 Pins Lab Notebook 0.16.1.
