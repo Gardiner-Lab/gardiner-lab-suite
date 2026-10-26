@@ -8,6 +8,15 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.16.3] - 2026-10-26
+
+Pins Lab Stocks 0.9.0.
+
+### Added
+- Lab Stocks 0.9.0: **⇧ Update from eLab**, for the lab admin: takes what was changed in eLab since it was last
+  sent (a glycerol stock's fields, places in storage, names of those brought over), eLab being right where both
+  were changed. Only when pressed.
+
 ## [2.16.2] - 2026-10-26
 
 Pins Lab Stocks 0.8.0.
