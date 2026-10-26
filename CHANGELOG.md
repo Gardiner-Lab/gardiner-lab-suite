@@ -8,6 +8,18 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.16.4] - 2026-10-26
+
+Pins Lab Stocks 0.10.0.
+
+### Added
+- Lab Stocks 0.10.0: **the lab's own people** in eLab, set by the lab admin in the bring-over dialog. Stocks
+  brought over from a shared eLab group are made by their eLab owner when that owner is one of the lab's people,
+  and credited to the administrator otherwise, the eLab owner kept and shown as "Owner in eLab".
+
+### Fixed
+- Lab Stocks 0.10.0: an eLab sample with no place in its box (position -1) is brought over without one.
+
 ## [2.16.3] - 2026-10-26
 
 Pins Lab Stocks 0.9.0.
