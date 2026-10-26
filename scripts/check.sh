@@ -119,6 +119,15 @@ tool "/stocks/health"   "Lab Stocks"        STOCKS_VERSION   lab-stocks
 tool "/booking/health"  "Booking"           BOOKING_VERSION  lab-booking
 tool "/backup/health"   "backup console"    SUITE_VERSION    lab-suite-backup
 
+# The file converter has no route through the proxy: where this runs on the
+# server itself, Docker says how it is.
+if [[ "$BASE" == https://localhost* ]] && command -v docker >/dev/null 2>&1; then
+  echo "Inside the server:"
+  state="$(docker inspect -f '{{.State.Health.Status}}' lab-converter 2>/dev/null)"
+  if [[ "$state" == healthy ]]; then ok "converter" "file converter: healthy"
+  else bad "converter" "file converter: ${state:-not running}"; fi
+fi
+
 if [[ "$fail" == 0 ]]; then
   echo "All routes answered."
 else

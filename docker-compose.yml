@@ -58,7 +58,7 @@ services:
   # users table) and keeps the labs, their registration codes and who is in
   # which lab in suite-data, which the tools read.
   portal:
-    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.16.4}
+    image: ghcr.io/gardiner-lab/lab-suite-portal:${SUITE_VERSION:-2.17.0}
     container_name: lab-portal
     # New accounts go into MoClo's directory, so it must exist first.
     depends_on:
@@ -172,7 +172,7 @@ services:
   # the account directory and MoClo's saved assemblies, the editor's plasmids
   # and the suite's labs, and writes only to its own volume.
   notebook:
-    image: ghcr.io/gardiner-lab/lab-notebook:${NOTEBOOK_VERSION:-0.16.1}
+    image: ghcr.io/gardiner-lab/lab-notebook:${NOTEBOOK_VERSION:-0.17.0}
     container_name: lab-notebook
     depends_on:
       moclo:
@@ -185,6 +185,8 @@ services:
       # Bookings show on the day they are for.
       - booking-data:/booking:ro
     environment:
+      # Opens Word, PowerPoint and Excel attachments in the browser, as PDFs.
+      - CONVERTER_URL=http://converter:3000
       - URL_PREFIX=/notebook
       - SUITE_HOME_URL=/
       - SUITE_LOGIN_URL=/account/login
@@ -197,13 +199,16 @@ services:
     restart: unless-stopped
     expose:
       - "5004"
+    networks:
+      - default
+      - converter
 
   # The seed bank, at /seeds/: plant lines, seed lots and plants, their
   # lineage, phenotypes with photos and 3D scans, and labels. It reads the
   # account directory and labs, the editor's plasmids and the notebook's links,
   # and writes only to its own volume.
   seeds:
-    image: ghcr.io/gardiner-lab/seed-bank:${SEEDS_VERSION:-0.7.0}
+    image: ghcr.io/gardiner-lab/seed-bank:${SEEDS_VERSION:-0.8.0}
     container_name: lab-seeds
     depends_on:
       moclo:
@@ -217,6 +222,8 @@ services:
       # Glycerol stocks, for a family tree (plasmid -> stocks -> lines -> seeds).
       - stocks-data:/stocks:ro
     environment:
+      # Opens Word, PowerPoint and Excel attachments in the browser, as PDFs.
+      - CONVERTER_URL=http://converter:3000
       - URL_PREFIX=/seeds
       - SUITE_HOME_URL=/
       - SUITE_LOGIN_URL=/account/login
@@ -231,13 +238,16 @@ services:
     restart: unless-stopped
     expose:
       - "5005"
+    networks:
+      - default
+      - converter
 
   # Lab stocks, at /stocks/: glycerol stocks and primers, numbered per lab,
   # with storage, labels and files. It reads the account directory and labs,
   # the editor's plasmids, the notebook's links and the Seed Bank's lab codes,
   # and writes only to its own volume.
   stocks:
-    image: ghcr.io/gardiner-lab/lab-stocks:${STOCKS_VERSION:-0.10.0}
+    image: ghcr.io/gardiner-lab/lab-stocks:${STOCKS_VERSION:-0.11.0}
     container_name: lab-stocks
     depends_on:
       moclo:
@@ -250,6 +260,8 @@ services:
       - seeds-data:/seeds:ro
       - suite-data:/suite:ro
     environment:
+      # Opens Word, PowerPoint and Excel attachments in the browser, as PDFs.
+      - CONVERTER_URL=http://converter:3000
       - URL_PREFIX=/stocks
       - SUITE_HOME_URL=/
       - SUITE_LOGIN_URL=/account/login
@@ -266,6 +278,9 @@ services:
     restart: unless-stopped
     expose:
       - "5006"
+    networks:
+      - default
+      - converter
 
   # Booking, at /booking/: rooms and equipment, booked ahead by the labs and
   # chair groups they are shared with. It reads the account directory and the
@@ -292,8 +307,28 @@ services:
     expose:
       - "5007"
 
+  # The file converter: LibreOffice, turning Word, PowerPoint and Excel
+  # attachments into PDFs so the notebook, the Seed Bank and Lab Stocks can
+  # show them in the browser. Only those three reach it, on a network of its
+  # own with no way out to the internet, so the files never leave the server.
+  converter:
+    image: gotenberg/gotenberg:8.15.3
+    container_name: lab-converter
+    command: ["gotenberg", "--api-timeout=120s", "--libreoffice-auto-start=true",
+              "--chromium-disable-routes=true", "--webhook-disable=true",
+              "--prometheus-disable-collect=true", "--log-level=warn"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - converter
+
   backup:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.16.4}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.17.0}
     container_name: lab-backup
     volumes:
       # Read-only: the backup never needs to change the live data.
@@ -328,7 +363,7 @@ services:
   # access to the volumes in order to restore, which is why the nightly job is
   # a separate service that does not.
   backup-console:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.16.4}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.17.0}
     container_name: lab-backup-console
     command: ["api"]
     volumes:
@@ -363,7 +398,7 @@ services:
   # deliberately does not have. Kept behind a profile so it never starts with
   # the stack; `make restore` is the way in.
   restore:
-    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.16.4}
+    image: ghcr.io/gardiner-lab/lab-suite-backup:${SUITE_VERSION:-2.17.0}
     container_name: lab-restore
     profiles: ["restore"]
     volumes:
@@ -380,6 +415,11 @@ services:
     environment:
       - TZ=${TZ:-Europe/Amsterdam}
     command: ["restore", "--list"]
+
+networks:
+  # The converter's own: internal, so nothing on it reaches the internet.
+  converter:
+    internal: true
 
 volumes:
   # Created by whichever tool starts first and shared by both.

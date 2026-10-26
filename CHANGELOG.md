@@ -8,6 +8,18 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-10-26
+
+Pins Lab Notebook 0.17.0, Seed Bank 0.8.0 and Lab Stocks 0.11.0; adds the file converter (Gotenberg 8.15.3).
+
+### Added
+- Attachments open in the browser without downloading: Word, PowerPoint and Excel files (.doc, .docx, .ppt,
+  .pptx, .xls, .xlsx, OpenDocument, RTF, CSV) in the Lab Notebook, the Seed Bank and Lab Stocks are shown as PDFs,
+  made by a new **file converter** service (LibreOffice, in Gotenberg) the first time each file is opened and kept
+  for the next time. Text files (notes, FASTA, GenBank) open as plain text. The original still downloads.
+- The converter is on an internal network of its own: only those three tools reach it, and it cannot reach the
+  internet, so files never leave the server. `make check` reports its health.
+
 ## [2.16.4] - 2026-10-26
 
 Pins Lab Stocks 0.10.0.

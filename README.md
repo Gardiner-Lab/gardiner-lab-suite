@@ -13,9 +13,13 @@ landing page that lists the tools:
 | `/seeds/` | [Seed Bank](https://github.com/Gardiner-Lab/seed-bank) | its own |
 | `/stocks/` | [Lab Stocks](https://github.com/Gardiner-Lab/lab-stocks) | its own |
 | `/booking/` | [Booking](https://github.com/Gardiner-Lab/lab-booking) | its own |
+| none (inside only) | File converter: LibreOffice, so Word, PowerPoint and Excel attachments open in the browser as PDFs | [Gotenberg](https://gotenberg.dev) |
 
 Each tool keeps its own published image and updates independently — nothing is
-copied into this repository. The two share a data volume so a plasmid edited in
+copied into this repository. The file converter has no page of its own: only
+the notebook, the Seed Bank and Lab Stocks reach it, on an internal network with
+no way out to the internet, so attachments never leave the server. It uses
+about 370 MiB of memory. The two share a data volume so a plasmid edited in
 the Plasmid Editor is updated in the MoClo tool as well.
 
 ## Installing
