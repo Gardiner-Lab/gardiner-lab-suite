@@ -8,6 +8,14 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.16.1] - 2026-10-26
+
+Pins Lab Notebook 0.16.1.
+
+### Added
+- Lab Notebook 0.16.1: Tab in text works as in a word processor - it puts in a tab (Shift+Tab takes it
+  back), and in a list it moves the item in a level (Shift+Tab out). Tabs are kept in the PDF and Word exports.
+
 ## [2.16.0] - 2026-10-24
 
 Pins Seed Bank 0.7.0 (where plants grow, phenotypes by treatment, family trees, chair groups), Lab Stocks 0.7.0
