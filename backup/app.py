@@ -262,7 +262,7 @@ def list_archives() -> list:
     return [{
         'name': item['name'],
         'bytes': item['bytes'],
-        'created_at': time.strftime('%Y-%m-%d %H:%M', time.localtime(item['mtime'])),
+        'created_at': time.strftime('%d-%m-%Y %H:%M', time.localtime(item['mtime'])),
         'has_checksum': item['has_checksum'],
     } for item in found]
 

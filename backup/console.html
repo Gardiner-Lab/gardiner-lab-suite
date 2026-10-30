@@ -105,6 +105,14 @@
 
 <script>
 const $ = (sel, root = document) => root.querySelector(sel);
+// A moment as the lab writes it, day-first on the 24-hour clock (30-10-2026 02:00), in this computer's time zone.
+function euStamp(stamp) {
+  if (!stamp) return '';
+  const d = new Date(String(stamp).replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(stamp) ? '' : 'Z'));
+  if (Number.isNaN(d.getTime())) return String(stamp);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const bytes = (n) => {
@@ -259,7 +267,7 @@ function renderConsole() {
         <div class="stat"><div class="k">Last backup</div><div class="v">
           <span class="dot ${last.status === 'ok' ? 'ok' : last.status ? 'bad' : 'warn'}"></span>
           ${last.status ? esc(last.status) : 'none yet'}</div>
-          <div class="hint" style="margin:0">${esc((last.finished_at || '').replace('T', ' ').replace('Z', ''))}</div></div>
+          <div class="hint" style="margin:0">${esc(euStamp(last.finished_at))}</div></div>
         <div class="stat"><div class="k">Archives</div><div class="v">${s.archive_count}</div></div>
         <div class="stat"><div class="k">Free space</div><div class="v">${bytes(s.disk.free)}</div></div>
       </div>

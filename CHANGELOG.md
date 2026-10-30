@@ -8,6 +8,10 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Dates are written day-first, as in Europe: 30-10-2026, and 30-10-2026 16:40 on the 24-hour clock, on the
+  dashboard (accounts, labs, the certificate) and in the backup console (backups and the last run, in local time).
+
 ## [2.17.0] - 2026-10-26
 
 Pins Lab Notebook 0.17.0, Seed Bank 0.8.0 and Lab Stocks 0.11.0; adds the file converter (Gotenberg 8.15.3).
