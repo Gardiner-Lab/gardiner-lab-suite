@@ -8,7 +8,21 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-10-30
+
+Pins Lab Notebook 0.18.0, Seed Bank 0.9.0, Lab Stocks 0.12.0, Plasmid Editor 0.11.0 and MoClo Library Tool 1.17.0.
+
+### Added
+- Lab Notebook 0.18.0: tables paste in from Excel and other spreadsheets (as a table in text, or filling a table
+  from a cell); a table's column names are changed in its header; colours for letters, a marker switched on and
+  off like a pen (with No highlight), strike-through and three headings in the formatting bar; long steps and
+  their title wrap.
+- MoClo Library Tool 1.17.0: saved constructs and plasmids on the dashboard link to the plasmid (or cassette)
+  itself.
+
 ### Changed
+- Dates are written day-first in every tool (30-10-2026, 30-10-2026 16:40). Lab Notebook day pages are named
+  30-10-2026 Thursday and months October 2026; existing ones are renamed when the notebook starts.
 - Dates are written day-first, as in Europe: 30-10-2026, and 30-10-2026 16:40 on the 24-hour clock, on the
   dashboard (accounts, labs, the certificate) and in the backup console (backups and the last run, in local time).
 
