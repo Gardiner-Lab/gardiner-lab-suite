@@ -8,6 +8,25 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-10-30
+
+Pins Lab Notebook 0.19.0, Plasmid Editor 0.13.0, MoClo Library Tool 1.18.0, Booking 0.3.0, Seed Bank 0.10.0
+and Lab Stocks 0.13.0.
+
+### Added
+- **About** and **How to use** pages for every tool, reached from each one's top bar and from its empty lists:
+  what the tool is, what it holds, how it fits with the others and who sees what; then the habits that keep
+  its records honest, the steps for each routine job, and how to put mistakes right.
+- Lab Notebook 0.19.0: attached documents open in the notebook itself, over the page; a page shows previews of
+  the notes under it, as cards.
+
+### Fixed
+- Plasmid Editor 0.13.0: searching a sequence that reads on the **reverse strand** marked it on the forward
+  strand only; the complement was never highlighted. A hit is now marked on the strand it reads on.
+- Plasmid Editor 0.12.0: Gateway **LR** reactions read a circular donor as if it were linear, so an entry clone
+  whose file started between its att sites gave a product carrying the entry backbone and ccdB instead of the
+  gene. Both products of the crossover are now reported, with the features of both parents.
+
 ## [2.18.0] - 2026-10-30
 
 Pins Lab Notebook 0.18.0, Seed Bank 0.9.0, Lab Stocks 0.12.0, Plasmid Editor 0.11.0 and MoClo Library Tool 1.17.0.
