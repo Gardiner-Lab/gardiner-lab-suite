@@ -8,6 +8,16 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Two pages for the suite itself, linked from the landing page and from each other:
+  **How an experiment runs through Trellis Tools** (`/suite/help`) follows one construct from design to a
+  homozygous line through every tool — designing and checking it, building and recording it, confirming the
+  clone, into plants, growing and scoring, the next generation, a cross with a neighbouring lab, and then
+  following the whole thread back — with sections on sharing between people and labs, the habits that keep
+  it working, and what is kept where. **About Trellis Tools** (`/suite/about`) says why it exists, what the
+  tools are, what holds them together, how sharing works, how it sits alongside eLabJournal, and what happens
+  to your data.
+
 ## [2.19.1] - 2026-10-31
 
 Pins MoClo Library Tool 1.18.1 and Seed Bank 0.10.1.

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How an experiment runs through Trellis Tools</title>
+<link rel="icon" type="image/svg+xml" href="/account/trellis.svg">
+<link rel="stylesheet" href="/account/trellis.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --text: var(--tt-text); --muted: var(--tt-muted); --border: var(--tt-border);
+          --bg: var(--tt-bg); --card: var(--tt-card); --hover: var(--tt-hover); --accent: var(--tt-green); }
+  body { font-family: var(--tt-font); line-height: 1.6; color: var(--text); background: var(--bg); }
+  .bar { display: flex; align-items: center; gap: .9rem; padding: .6rem 1.1rem; background: var(--card);
+         border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+  .bar a { text-decoration: none; }
+  .bar .home { display: inline-flex; align-items: center; gap: .45rem; color: var(--tt-brown-dark);
+               font-weight: 650; font-size: .92rem; }
+  .bar .home img { width: 1.6rem; height: 1.6rem; }
+  .bar .where { color: var(--muted); font-size: .92rem; }
+  .bar .right { margin-left: auto; display: flex; gap: .9rem; font-size: .88rem; }
+  .bar .right a { color: var(--muted); }
+  .bar .right a:hover { color: var(--tt-green-dark); }
+
+  .help { max-width: 56rem; margin: 0 auto; padding: 1.8rem 1.5rem 5rem; }
+  .help h1 { font-size: 1.9rem; margin-bottom: .4rem; letter-spacing: -.01em; }
+  .help h2 { margin-top: 2.4rem; padding-top: .6rem; border-top: 1px solid var(--border); font-size: 1.3rem; }
+  .help h3 { margin: 1.2rem 0 .3rem; font-size: 1.02rem; }
+  .help p, .help li { margin-bottom: .5rem; }
+  .help ul, .help ol { margin-left: 1.3rem; }
+  .lead { font-size: 1.08rem; color: var(--text); }
+  .help a { color: var(--tt-green-dark); }
+  code { background: var(--hover); padding: 0 .3rem; border-radius: .25rem; font-size: .92em; }
+  .toc { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1.1rem 0 .4rem; }
+  .toc a { text-decoration: none; background: var(--card); border: 1px solid var(--border);
+           border-radius: 1rem; padding: .15rem .7rem; font-size: .88rem; color: var(--muted); }
+  .toc a:hover { background: var(--tt-green-soft); color: var(--tt-green-ink); }
+  section { scroll-margin-top: 4rem; }
+  .step { display: flex; gap: 1rem; margin: 1.1rem 0; }
+  .step .n { flex: 0 0 2rem; height: 2rem; border-radius: 50%; background: var(--tt-green-soft);
+             color: var(--tt-green-ink); font-weight: 700; display: flex; align-items: center;
+             justify-content: center; font-size: .95rem; }
+  .step .body { flex: 1; min-width: 0; }
+  .step h3 { margin-top: .1rem; }
+  .tool { display: inline-flex; align-items: center; gap: .3rem; background: var(--tt-green-soft);
+          color: var(--tt-green-ink); border-radius: 1rem; padding: 0 .55rem; font-size: .82rem;
+          font-weight: 600; white-space: nowrap; }
+  .rules { background: var(--tt-warn-soft); border: 1px solid #ecd5a0; border-radius: .6rem;
+           padding: .9rem 1rem .5rem 2.3rem; }
+  .thread { background: var(--card); border: 1px solid var(--border); border-radius: .6rem; padding: .9rem 1.1rem; }
+  .thread li { margin-bottom: .35rem; }
+  footer { border-top: 1px solid var(--border); padding: 1.2rem; text-align: center;
+           color: var(--muted); font-size: .88rem; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="home" href="/"><img src="/account/trellis.svg" alt=""><span>Trellis Tools</span></a>
+  <span class="where">How it all fits together</span>
+  <span class="right"><a href="/suite/about">About</a><a href="/">The tools</a></span>
+</div>
+
+<main class="help">
+  <h1>How an experiment runs through Trellis Tools</h1>
+  <p class="lead">One construct, followed from an idea to a homozygous line and the paper figure, through every
+     tool in the suite. The point of keeping them in one place is that each step remembers the one before it,
+     so at the end you can still answer: where did this line come from, who made it, and what was done to it?
+     <a href="/suite/about">What Trellis Tools is →</a></p>
+
+  <nav class="toc">
+    <a href="#before">Before you start</a>
+    <a href="#design">1 Design</a>
+    <a href="#check">2 Check it</a>
+    <a href="#build">3 Build it</a>
+    <a href="#confirm">4 Confirm the clone</a>
+    <a href="#transform">5 Into plants</a>
+    <a href="#grow">6 Growing and scoring</a>
+    <a href="#next">7 The next generation</a>
+    <a href="#cross">8 A cross with another lab</a>
+    <a href="#back">9 Following the thread back</a>
+    <a href="#sharing">Sharing</a>
+    <a href="#habits">The habits that make it work</a>
+    <a href="#kept">What is kept, and where</a>
+  </nav>
+
+  <section id="before">
+    <h2>Before you start</h2>
+    <p>You sign in once, at the suite's front door, and every tool knows who you are. Three things shape what
+       you see:</p>
+    <ul>
+      <li><b>Your account</b> — your own notebook, your own saved work.</li>
+      <li><b>Your lab</b> — its stocks, seeds, plasmids and equipment are shared with everyone in it. Your lab
+          has a short <b>lab code</b>, chosen once by its lead, which begins every code it ever issues:
+          <code>GL-G-0042</code> is the Gardiner Lab's forty-second glycerol stock.</li>
+      <li><b>Your chair group</b> — the other labs beside yours. They can <i>see</i> your stocks and seeds, but
+          not change them. That is what makes borrowing an antibody or crossing with a neighbour's mutant
+          possible without handing over your records.</li>
+    </ul>
+    <p>Everything below assumes nothing more than that.</p>
+  </section>
+
+  <section id="design">
+    <h2>1 Design the construct <span class="tool">MoClo Library Tool</span></h2>
+    <div class="step"><div class="n">1</div><div class="body">
+      <h3>Find the parts, or add them</h3>
+      <p>The lab's Golden Gate parts are already there: promoters, coding sequences, terminators, each with its
+         4 bp fusion sites, who contributed it and where the tube is. Anything new you add once, properly, and
+         everyone has it.</p>
+    </div></div>
+    <div class="step"><div class="n">2</div><div class="body">
+      <h3>Check the set before you order anything</h3>
+      <p>The compatibility checker finds the two things that actually ruin an assembly: overhangs that clash or
+         leave a gap, and an internal BsaI or BpiI site that the reaction would cut. It names the part at
+         fault.</p>
+    </div></div>
+    <div class="step"><div class="n">3</div><div class="body">
+      <h3>Assemble it on screen</h3>
+      <p>Choose the backbone and the parts in order; the tool joins them through their fusion sites and shows
+         the plasmid you are about to make, every part marked. Save it, and send it to the reaction calculator
+         for the mix, scaled to the number of reactions.</p>
+    </div></div>
+  </section>
+
+  <section id="check">
+    <h2>2 Check it over <span class="tool">Plasmid Editor</span></h2>
+    <p>Both tools share one library, so the assembled plasmid opens straight in the editor. Here you can look
+       at it the way you would any sequence: its map, its features, what cuts it and where, a virtual gel of
+       the digest you plan to run, and the primers you will need. If the lab already owns a sequencing primer
+       that binds it, the editor says so — searching by sequence finds it before anyone orders another.</p>
+    <p>If the work is not MoClo-based at all — a Gibson, a restriction ligation, a Gateway LR — this is where
+       you simulate it, and the product you save carries the features of both parents.</p>
+  </section>
+
+  <section id="build">
+    <h2>3 Build it, and write down what you did <span class="tool">Lab Notebook</span></h2>
+    <p>Press <b>Start today</b> and the day's page opens, filed under its month and year. Bring the reaction in
+       from MoClo and its parts and volumes arrive as a table you can tick off as you pipette. Paste in the
+       gel photo, click the wells you used and name each lane, so the picture explains itself later.</p>
+    <p>Then the step that ties it all together: type <code>@</code> and link the plasmid. The link survives
+       renaming, and the plasmid now knows this page exists.</p>
+  </section>
+
+  <section id="confirm">
+    <h2>4 Confirm the clone <span class="tool">Plasmid Editor</span> <span class="tool">Lab Stocks</span></h2>
+    <p>Upload the sequencing reads against the plasmid. Each is aligned and shown with its chromatogram, its
+       quality and every mismatch, and the coverage tells you what the reads reached.</p>
+    <p>When the reads say the clone is right, <b>confirm</b> it. Two things happen at once: the plasmid is
+       marked confirmed, with who confirmed it and from which reads; and its <b>glycerol stock appears in Lab
+       Stocks</b> with the next code, already linked to the sequence that proved it. Fill in the strain and
+       which box the tube is in, print the label, and freeze it.</p>
+    <p>This is the moment most labs lose: the tube goes in the freezer and the sequence stays on a laptop. Here
+       the tube and the proof are one record, and if eLabJournal is switched on, the stock is copied there with
+       its box and position.</p>
+  </section>
+
+  <section id="transform">
+    <h2>5 Into plants <span class="tool">Seed Bank</span></h2>
+    <div class="step"><div class="n">1</div><div class="body">
+      <h3>The line</h3>
+      <p>A <b>line</b> is a genetic identity, not a generation: <i>35S:tRFP-4</i> stays one line whether you
+         are looking at its T1 or its T3. Say which plasmid it carries, and it reaches back to the editor and
+         to the glycerol stocks of that plasmid.</p>
+    </div></div>
+    <div class="step"><div class="n">2</div><div class="body">
+      <h3>The seeds</h3>
+      <p>Each physical bag is a <b>seed lot</b> with its own code and label: where it came from, how much is
+         left, its generation. Dip the plants, collect the T1 seed, and that bag is a lot of its own.</p>
+    </div></div>
+    <div class="step"><div class="n">3</div><div class="body">
+      <h3>Sowing</h3>
+      <p><b>Sow</b> from the lot rather than writing on a tray: each plant gets a code and a number, knows
+         which lot it came from, where it is growing and under what treatment. Print the pot labels; a phone
+         camera on the QR code opens the plant.</p>
+    </div></div>
+  </section>
+
+  <section id="grow">
+    <h2>6 Growing, and what you see <span class="tool">Seed Bank</span> <span class="tool">Booking</span></h2>
+    <p>The <b>Growing</b> page is every plant still alive, by where it grows. Select a whole sowing or open it
+       and pick individual plants, then score a trait across them, move them, change their treatment, or mark
+       the ones that died.</p>
+    <p>Score phenotypes against named traits, so they can be compared between plants, lines and treatments
+       later, with photos and 3D scans attached. Booked the confocal to take them? That booking shows at the
+       top of your notebook day, so a picture can always be traced to the microscope that took it.</p>
+  </section>
+
+  <section id="next">
+    <h2>7 The next generation <span class="tool">Seed Bank</span></h2>
+    <p><b>Harvest</b> the plant you want to keep, and its seeds become a new lot — one that remembers the plant
+       it came off, which remembers the lot it was sown from, back to the beginning. Sow it, test it on
+       selection plates, record the segregation, and when a line is homozygous say so on the lot.</p>
+    <p>An independent transformant is a new genetic identity, so <b>found a line</b> from that plant. Later
+       generations of it are not new lines; they are lots of the same one.</p>
+  </section>
+
+  <section id="cross">
+    <h2>8 A cross with another lab <span class="tool">Seed Bank</span></h2>
+    <p>The lab next door has the mutant you want to cross into. Because you are in the same chair group, you
+       can see their lines and plants without them handing anything over. Cross your plant with theirs: the F1
+       seed lot records both parents, one from each lab, and the new line's pedigree reaches into both.</p>
+    <p>Nobody has given up control. Their records stay theirs to change; you can only read them.</p>
+  </section>
+
+  <section id="back">
+    <h2>9 Following the thread back</h2>
+    <p>Two years later, someone finds a bag labelled <code>GL-S-0042</code> and asks what it is. Open it, and
+       the answer is one page: its line, the plants it was harvested from, the lot those were sown from, back
+       through every generation to the T1, to the plasmid it carries, to the glycerol stock of that plasmid, to
+       the notebook pages written on each of those days, and to who did it.</p>
+    <div class="thread">
+      <b>The thread, link by link</b>
+      <ul>
+        <li><b>Part → plasmid</b>: the assembly keeps the parts it was made from.</li>
+        <li><b>Plasmid → glycerol stock</b>: confirming a clone makes the stock.</li>
+        <li><b>Plasmid → line</b>: the line says what it carries.</li>
+        <li><b>Lot → plant → lot</b>: every sowing and every harvest, in both directions.</li>
+        <li><b>Anything → notebook page</b>: <code>@</code> links one way, and the record lists the pages that
+            mention it the other.</li>
+        <li><b>Plant → plant material</b>: the DNA tube in the freezer knows which plant it came from.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="sharing">
+    <h2>Sharing, between people and between labs</h2>
+    <h3>What your lab shares by default</h3>
+    <p>Stocks, seeds, plasmids, protocols and equipment belong to the <b>lab</b>, not to a person: anyone in it
+       sees and changes them. That is the point — when someone leaves, their tubes do not leave with them.</p>
+    <h3>What stays yours</h3>
+    <p>Your <b>notebook</b> is yours alone until you share it. Share a single page with a colleague, or a whole
+       notebook with your lab; a lab lead can be given the notebook of someone in their lab. The
+       <b>protocols</b> library is shared with the lab as a matter of course, so there is one copy of each
+       method, improved over time — and a day page keeps the version it used, so improving a protocol never
+       rewrites your history.</p>
+    <h3>What the chair group sees</h3>
+    <p>The other labs beside yours see your stocks and seeds <b>read-only</b>: enough to find a shared
+       antibody, borrow a chemical or cross with a mutant, never enough to change your records. Equipment is
+       shared deliberately — whoever adds a microscope chooses which labs or chair groups may book it.</p>
+    <h3>Beyond the suite</h3>
+    <p>Where the university keeps its own inventory, Lab Stocks copies your stocks to <b>eLabJournal</b> and
+       takes back what changed there, so the institutional record stays right without anyone typing twice.</p>
+  </section>
+
+  <section id="habits">
+    <h2>The habits that make it work</h2>
+    <ol class="rules">
+      <li><b>Record it as it happens.</b> Every tool is quickest at the bench, on the day. Nothing here can
+          reconstruct what nobody wrote down.</li>
+      <li><b>Link instead of retyping.</b> <code>@</code> in the notebook, the plasmid on the line, the plant on
+          the sample. Each link is what somebody later will follow.</li>
+      <li><b>Let the tools make the records.</b> Confirming a clone makes its stock; harvesting a plant makes
+          the lot; sowing makes the plants. Entering them by hand is how a thread breaks.</li>
+      <li><b>Write the code on the tube.</b> A record with no code on the thing it describes helps nobody.</li>
+      <li><b>Mark, don't delete.</b> A dead plant, an empty bag, a finished tube: say so. What others descend
+          from cannot be deleted, and should not be.</li>
+      <li><b>Use the same words.</b> Trait names, places, treatments: pick from what is already there, so
+          things can be compared later.</li>
+    </ol>
+  </section>
+
+  <section id="kept">
+    <h2>What is kept, and where</h2>
+    <p>Everything lives on the lab's own server, in plain databases with the photos and files inside them,
+       backed up to the lab's NAS every night. Nothing is sent anywhere else, apart from the copy in
+       eLabJournal when that is switched on.</p>
+    <p>Nothing is thrown away quietly: every notebook page keeps its earlier versions, every record keeps a
+       history of who changed what, deleted pages can be brought back, and a deleted record is hidden rather
+       than erased so the things pointing at it keep working.</p>
+    <p>Each tool has its own fuller guide — open a tool and press <b>Help</b>.</p>
+  </section>
+</main>
+
+<footer>
+  <a href="/">All the tools</a> &middot; <a href="/suite/about">About Trellis Tools</a>
+</footer>
+</body>
+</html>

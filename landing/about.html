@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About Trellis Tools</title>
+<link rel="icon" type="image/svg+xml" href="/account/trellis.svg">
+<link rel="stylesheet" href="/account/trellis.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --text: var(--tt-text); --muted: var(--tt-muted); --border: var(--tt-border);
+          --bg: var(--tt-bg); --card: var(--tt-card); --hover: var(--tt-hover); }
+  body { font-family: var(--tt-font); line-height: 1.6; color: var(--text); background: var(--bg); }
+  .bar { display: flex; align-items: center; gap: .9rem; padding: .6rem 1.1rem; background: var(--card);
+         border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+  .bar a { text-decoration: none; }
+  .bar .home { display: inline-flex; align-items: center; gap: .45rem; color: var(--tt-brown-dark);
+               font-weight: 650; font-size: .92rem; }
+  .bar .home img { width: 1.6rem; height: 1.6rem; }
+  .bar .where { color: var(--muted); font-size: .92rem; }
+  .bar .right { margin-left: auto; display: flex; gap: .9rem; font-size: .88rem; }
+  .bar .right a { color: var(--muted); }
+  .bar .right a:hover { color: var(--tt-green-dark); }
+
+  .help { max-width: 56rem; margin: 0 auto; padding: 1.8rem 1.5rem 5rem; }
+  .help h1 { font-size: 1.9rem; margin-bottom: .4rem; letter-spacing: -.01em; }
+  .help h2 { margin-top: 2.4rem; padding-top: .6rem; border-top: 1px solid var(--border); font-size: 1.3rem; }
+  .help p, .help li { margin-bottom: .5rem; }
+  .help ul, .help ol { margin-left: 1.3rem; }
+  .lead { font-size: 1.08rem; }
+  .help a { color: var(--tt-green-dark); }
+  code { background: var(--hover); padding: 0 .3rem; border-radius: .25rem; font-size: .92em; }
+  .toc { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1.1rem 0 .4rem; }
+  .toc a { text-decoration: none; background: var(--card); border: 1px solid var(--border);
+           border-radius: 1rem; padding: .15rem .7rem; font-size: .88rem; color: var(--muted); }
+  .toc a:hover { background: var(--tt-green-soft); color: var(--tt-green-ink); }
+  section { scroll-margin-top: 4rem; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .8rem; margin-top: .8rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: .6rem; padding: .8rem 1rem; }
+  .card h3 { font-size: 1rem; margin-bottom: .2rem; }
+  .card p { font-size: .92rem; color: var(--muted); margin: 0; }
+  footer { border-top: 1px solid var(--border); padding: 1.2rem; text-align: center;
+           color: var(--muted); font-size: .88rem; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="home" href="/"><img src="/account/trellis.svg" alt=""><span>Trellis Tools</span></a>
+  <span class="where">About</span>
+  <span class="right"><a href="/suite/help">How it all fits together</a><a href="/">The tools</a></span>
+</div>
+
+<main class="help">
+  <h1>About Trellis Tools</h1>
+  <p class="lead">Molecular plant biology software for the lab: seven tools that share one sign-in, one set of
+     labs, and one thread running through everything — from a part in the freezer to a homozygous line three
+     generations later. Written in the Gardiner Lab, running on the lab's own server.
+     <a href="/suite/help">How an experiment runs through it →</a></p>
+
+  <nav class="toc">
+    <a href="#why">Why it exists</a>
+    <a href="#tools">The tools</a>
+    <a href="#thread">What holds it together</a>
+    <a href="#who">Labs, people and sharing</a>
+    <a href="#elab">Alongside eLabJournal</a>
+    <a href="#safe">Your data</a>
+    <a href="#open">Open source</a>
+  </nav>
+
+  <section id="why">
+    <h2>Why it exists</h2>
+    <p>A plasmid is designed in one place, its sequence kept in another, its glycerol stock written in a
+       shared inventory, and the seeds it eventually produces listed in somebody's spreadsheet. Each of those
+       works on its own. What fails is the join: two years on, nobody can say which construct a line carries,
+       who made it, or what was done to it.</p>
+    <p>Trellis Tools keeps those records in one place and links them as they are made, so the join is never
+       something anyone has to reconstruct afterwards.</p>
+  </section>
+
+  <section id="tools">
+    <h2>The tools</h2>
+    <div class="cards">
+      <div class="card"><h3>MoClo Library Tool</h3><p>The lab's Golden Gate parts, compatibility checking,
+        assemblies, reaction mixes and a CRISPR guide designer.</p></div>
+      <div class="card"><h3>Plasmid Editor</h3><p>Sequence editing and annotation, restriction analysis,
+        cloning simulation, primer design and sequencing alignment.</p></div>
+      <div class="card"><h3>Lab Notebook</h3><p>A page for every day, active tables, gel photos, a shared
+        protocol library, and links to everything else.</p></div>
+      <div class="card"><h3>Seed Bank</h3><p>Lines, seed lots and plants, with the lineage that connects
+        them, phenotypes, photos and 3D scans.</p></div>
+      <div class="card"><h3>Lab Stocks</h3><p>Glycerol stocks, primers, chemicals, antibodies and plant
+        material, with labels, an order list and eLabJournal.</p></div>
+      <div class="card"><h3>Booking</h3><p>Rooms and equipment on a week calendar, shared with the labs that
+        use them, shown in the notebook on the day.</p></div>
+      <div class="card"><h3>Backups</h3><p>Every database copied to the lab's NAS each night, with a console
+        to check and restore them.</p></div>
+    </div>
+    <p style="margin-top:.9rem">Each has its own fuller description and guide: open a tool and press
+       <b>About</b> or <b>Help</b>.</p>
+  </section>
+
+  <section id="thread">
+    <h2>What holds it together</h2>
+    <ul>
+      <li><b>One sign-in.</b> Sign in once at the front door; every tool knows who you are.</li>
+      <li><b>One set of labs.</b> A lab is defined once, and every tool honours it.</li>
+      <li><b>One lab code.</b> Your lab's short code begins every code it issues, in every tool, so
+          <code>GL-G-0001</code> (a glycerol stock) and <code>GL-S-0001</code> (a seed lot) belong together.</li>
+      <li><b>Links made as the work happens.</b> Confirming a clone makes its glycerol stock; harvesting a
+          plant makes the next seed lot; typing <code>@</code> in a page links a plasmid, stock or seed, and
+          that record then lists the page in return.</li>
+    </ul>
+  </section>
+
+  <section id="who">
+    <h2>Labs, people and sharing</h2>
+    <ul>
+      <li><b>Your lab's records are the lab's</b>: stocks, seeds, plasmids, protocols and equipment are shared
+          with everyone in it, so they stay when people leave.</li>
+      <li><b>Your notebook is yours</b> until you share it — a page at a time, or the whole thing with your
+          lab.</li>
+      <li><b>Chair groups</b> let neighbouring labs see each other's stocks and seeds read-only: enough to
+          borrow an antibody or cross with a mutant, never enough to change someone else's records.</li>
+      <li><b>Equipment</b> is shared deliberately, with the labs or chair groups its owner chooses.</li>
+    </ul>
+  </section>
+
+  <section id="elab">
+    <h2>Alongside eLabJournal</h2>
+    <p>Trellis Tools does not replace the institution's record. Where eLabJournal is used, Lab Stocks copies
+       stocks there with their box and position, brings over what eLab already holds, and takes back what
+       changed. In a group shared with other labs, each stock keeps its real owner, so nobody's work is
+       credited to the wrong person.</p>
+  </section>
+
+  <section id="safe">
+    <h2>Your data</h2>
+    <p>Everything is on the lab's own server, in plain SQLite databases with the photos and files inside them,
+       backed up to the lab's NAS every night. Nothing is sent anywhere else, apart from the eLabJournal copy
+       when that is switched on.</p>
+    <p>Nothing disappears quietly: notebook pages keep their earlier versions, records keep a history of who
+       changed what, deleted pages can be brought back, and a deleted record is hidden rather than erased so
+       that whatever points at it keeps working. Each release is installed after a snapshot and a count of
+       every record, compared again afterwards.</p>
+  </section>
+
+  <section id="open">
+    <h2>Open source</h2>
+    <p>Free software, written for the Gardiner Lab at Utrecht University and published at
+       <a href="https://github.com/Gardiner-Lab" rel="noopener">github.com/Gardiner-Lab</a>. Each tool carries
+       its own licence and its own attributions — the Lab Notebook follows
+       <a href="https://github.com/TriliumNext/Trilium" rel="noopener">Trilium</a>'s design, and the Plasmid
+       Editor's feature set is modelled on <b>ApE (A Plasmid Editor)</b>; see each tool's About page.</p>
+    <p>Another lab can run the whole suite with one command, and each lab gets its own space, its own code and
+       its own records.</p>
+  </section>
+</main>
+
+<footer>
+  <a href="/">All the tools</a> &middot; <a href="/suite/help">How an experiment runs through Trellis Tools</a>
+</footer>
+</body>
+</html>
