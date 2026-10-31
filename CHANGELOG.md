@@ -8,6 +8,15 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.24.1] - 2026-10-31
+
+Pins Plasmid Editor 0.19.1.
+
+### Fixed
+- Plasmid Editor 0.19.1: glycerol stocks are listed, and can be added, on every plasmid rather than
+  only one confirmed by sequencing here. A lab moving its records over has stocks for plasmids that
+  were never confirmed in the suite, and had no way to record them.
+
 ## [2.24.0] - 2026-10-31
 
 Pins Plasmid Editor 0.19.0.
