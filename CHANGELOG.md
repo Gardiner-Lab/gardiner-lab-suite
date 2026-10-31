@@ -8,6 +8,14 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.20.2] - 2026-10-31
+
+Pins Plasmid Editor 0.15.1.
+
+### Fixed
+- Plasmid Editor 0.15.1: typing in the enzyme filter made every count read as 6, after 0.15.0 changed the
+  table to rely on the counts the server sends. Introduced in 2.20.1 and fixed the same day.
+
 ## [2.20.1] - 2026-10-31
 
 Pins Plasmid Editor 0.15.0.
