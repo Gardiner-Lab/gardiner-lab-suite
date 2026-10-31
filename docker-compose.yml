@@ -208,7 +208,7 @@ services:
   # account directory and labs, the editor's plasmids and the notebook's links,
   # and writes only to its own volume.
   seeds:
-    image: ghcr.io/gardiner-lab/seed-bank:${SEEDS_VERSION:-0.10.0}
+    image: ghcr.io/gardiner-lab/seed-bank:${SEEDS_VERSION:-0.10.1}
     container_name: lab-seeds
     depends_on:
       moclo:

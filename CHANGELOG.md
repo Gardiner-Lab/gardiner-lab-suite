@@ -10,7 +10,10 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [2.19.1] - 2026-10-31
 
-Pins MoClo Library Tool 1.18.1.
+Pins MoClo Library Tool 1.18.1 and Seed Bank 0.10.1.
+
+### Added
+- Seed Bank 0.10.1: an individual plant can be marked **dead** or **discarded**, not only a whole sowing.
 
 ### Fixed
 - MoClo Library Tool 1.18.1: a cassette card cut off its **SVG** and delete buttons, after a fourth export
