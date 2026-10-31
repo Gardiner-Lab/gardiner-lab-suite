@@ -8,6 +8,16 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-10-31
+
+Pins Plasmid Editor 0.19.0.
+
+### Added
+- Plasmid Editor 0.19.0: a plasmid can have more than one glycerol stock, which is how it is normally
+  kept - the cloning strain and the strain it was moved into. The editor lists every stock Lab Stocks
+  holds for the plasmid, and another can be added at any time: a new one for Lab Stocks to number, or
+  one that already has a number, linked to the plasmid so it is listed with the rest.
+
 ## [2.23.1] - 2026-10-31
 
 Pins Plasmid Editor 0.18.1.
