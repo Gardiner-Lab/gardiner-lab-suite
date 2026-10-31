@@ -8,6 +8,16 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-10-31
+
+Pins Plasmid Editor 0.16.0.
+
+### Added
+- Plasmid Editor 0.16.0: the sequencing page compares the reads of a clone against each other. Where
+  several reads cover the same base they settle between them whether a difference is the clone's own
+  sequence or a bad basecall, so a ragged read end no longer reads as a mutation. Each clone shows what
+  its reads confirm, what they contradict, and how much of the plasmid they reached.
+
 ## [2.20.2] - 2026-10-31
 
 Pins Plasmid Editor 0.15.1.
