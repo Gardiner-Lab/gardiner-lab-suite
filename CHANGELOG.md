@@ -8,6 +8,15 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.24.2] - 2026-10-31
+
+Pins Plasmid Editor 0.19.2.
+
+### Added
+- Plasmid Editor 0.19.2: a glycerol stock can be added from the editor tab as well, beside the stock
+  chips already shown on an open plasmid. That is where a plasmid is looked at, so the second strain's
+  stock can be recorded without going to the sequencing page.
+
 ## [2.24.1] - 2026-10-31
 
 Pins Plasmid Editor 0.19.1.
