@@ -2,7 +2,7 @@
   "suite": {
     "name": "Trellis Tools",
     "tagline": "Molecular plant biology software for the lab",
-    "footer": "Made by the Gardiner Lab, Universiteit Utrecht"
+    "footer": "Trellis Tools — free software; edit landing/tools.json to name your own lab here"
   },
   "tools": [
     {

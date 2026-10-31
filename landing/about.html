@@ -54,7 +54,7 @@
   <h1>About Trellis Tools</h1>
   <p class="lead">Molecular plant biology software for the lab: seven tools that share one sign-in, one set of
      labs, and one thread running through everything — from a part in the freezer to a homozygous line three
-     generations later. Written in the Gardiner Lab, running on the lab's own server.
+     generations later. Free software, running on your own server.
      <a href="/suite/help">How an experiment runs through it →</a></p>
 
   <nav class="toc">
@@ -92,7 +92,7 @@
         material, with labels, an order list and eLabJournal.</p></div>
       <div class="card"><h3>Booking</h3><p>Rooms and equipment on a week calendar, shared with the labs that
         use them, shown in the notebook on the day.</p></div>
-      <div class="card"><h3>Backups</h3><p>Every database copied to the lab's NAS each night, with a console
+      <div class="card"><h3>Backups</h3><p>Every database copied each night to wherever you choose, with a console
         to check and restore them.</p></div>
     </div>
     <p style="margin-top:.9rem">Each has its own fuller description and guide: open a tool and press
@@ -109,6 +109,10 @@
       <li><b>Links made as the work happens.</b> Confirming a clone makes its glycerol stock; harvesting a
           plant makes the next seed lot; typing <code>@</code> in a page links a plasmid, stock or seed, and
           that record then lists the page in return.</li>
+      <li><b>The family tree.</b> On any line, seed lot, plant, plasmid or glycerol stock, one page gathers the
+          whole history: the construct and its stocks, the parents and the chain of seeds back through every
+          generation, everything grown from it since, and the notebook pages about each step &mdash; across all
+          the tools at once. <a href="/suite/help#back">How it reads →</a></li>
     </ul>
   </section>
 
@@ -135,9 +139,9 @@
 
   <section id="safe">
     <h2>Your data</h2>
-    <p>Everything is on the lab's own server, in plain SQLite databases with the photos and files inside them,
-       backed up to the lab's NAS every night. Nothing is sent anywhere else, apart from the eLabJournal copy
-       when that is switched on.</p>
+    <p>Everything is on your own server, in plain SQLite databases with the photos and files inside them,
+       backed up each night to wherever you choose. Nothing is sent anywhere else, apart from the eLabJournal
+       copy when that is switched on.</p>
     <p>Nothing disappears quietly: notebook pages keep their earlier versions, records keep a history of who
        changed what, deleted pages can be brought back, and a deleted record is hidden rather than erased so
        that whatever points at it keeps working. Each release is installed after a snapshot and a count of
@@ -146,7 +150,7 @@
 
   <section id="open">
     <h2>Open source</h2>
-    <p>Free software, written for the Gardiner Lab at Utrecht University and published at
+    <p>Free software, published at
        <a href="https://github.com/Gardiner-Lab" rel="noopener">github.com/Gardiner-Lab</a>. Each tool carries
        its own licence and its own attributions — the Lab Notebook follows
        <a href="https://github.com/TriliumNext/Trilium" rel="noopener">Trilium</a>'s design, and the Plasmid

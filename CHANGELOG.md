@@ -16,7 +16,11 @@ and the project uses [semantic versioning](https://semver.org/).
   following the whole thread back — with sections on sharing between people and labs, the habits that keep
   it working, and what is kept where. **About Trellis Tools** (`/suite/about`) says why it exists, what the
   tools are, what holds them together, how sharing works, how it sits alongside eLabJournal, and what happens
-  to your data.
+  to your data, and both describe the **family tree**: the one page that gathers a record's whole history —
+  its construct and glycerol stocks, its parents and the chain of seeds back through every generation,
+  everything grown from it since, and the notebook pages about each step — across all the tools at once.
+- Neither page assumes whose lab is running the suite: it reads correctly wherever it is deployed, and
+  `landing/tools.json` is where a deployment puts its own name in the footer.
 
 ## [2.19.1] - 2026-10-31
 
