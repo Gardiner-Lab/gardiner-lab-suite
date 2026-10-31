@@ -8,6 +8,15 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.21.1] - 2026-10-31
+
+Pins Plasmid Editor 0.16.1.
+
+### Added
+- Plasmid Editor 0.16.1: the editor's help page now explains how read alignment works - the quality
+  trimming, the local affine-gap alignment and its scores, circular origins, large insertions, and what
+  makes a read count as mapped - alongside a section on comparing the reads of a clone.
+
 ## [2.21.0] - 2026-10-31
 
 Pins Plasmid Editor 0.16.0.
