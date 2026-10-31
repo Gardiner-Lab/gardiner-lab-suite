@@ -8,6 +8,16 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.20.1] - 2026-10-31
+
+Pins Plasmid Editor 0.15.0.
+
+### Fixed
+- Plasmid Editor 0.15.0: choosing a large enzyme set (**All REBASE**) hung the browser, and on a long
+  sequence killed the tab. A 150 kb sequence against all of REBASE now takes under 4 seconds instead of 76,
+  and downloads 0.6 MB instead of 55 MB. Past 2,000 sites the sequence is left unmarked, with the enzyme
+  table still counting every one; smaller sets behave as before.
+
 ## [2.20.0] - 2026-10-31
 
 Pins Lab Notebook 0.20.0, Plasmid Editor 0.14.0, MoClo Library Tool 1.19.0, Booking 0.4.0, Seed Bank 0.11.0
