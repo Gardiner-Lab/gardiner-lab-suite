@@ -8,6 +8,11 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-10-31
+
+Pins Lab Notebook 0.20.0, Plasmid Editor 0.14.0, MoClo Library Tool 1.19.0, Booking 0.4.0, Seed Bank 0.11.0
+and Lab Stocks 0.14.0.
+
 ### Added
 - Two pages for the suite itself, linked from the landing page and from each other:
   **How an experiment runs through Trellis Tools** (`/suite/help`) follows one construct from design to a
