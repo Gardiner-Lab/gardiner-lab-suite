@@ -8,6 +8,15 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-10-31
+
+Pins Plasmid Editor 0.17.0.
+
+### Added
+- Plasmid Editor 0.17.0: sequencing reads can be put into a clone after they are uploaded - several at
+  once by ticking them in the map, or one at a time from the read itself. Setting a read's clone no
+  longer means judging it: the verdict, and who gave it, are left untouched.
+
 ## [2.21.1] - 2026-10-31
 
 Pins Plasmid Editor 0.16.1.
