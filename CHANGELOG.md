@@ -8,6 +8,15 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.23.1] - 2026-10-31
+
+Pins Plasmid Editor 0.18.1.
+
+### Fixed
+- Plasmid Editor 0.18.1: dates in the editor are written the European way everywhere (31-10-2026), in
+  the reader's own time rather than the server's UTC; three places still showed the raw stamp. The
+  chromatogram's call panel also stays put after a base is called.
+
 ## [2.23.0] - 2026-10-31
 
 Pins Plasmid Editor 0.18.0.
