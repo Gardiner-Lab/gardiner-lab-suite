@@ -8,6 +8,14 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.19.1] - 2026-10-31
+
+Pins MoClo Library Tool 1.18.1.
+
+### Fixed
+- MoClo Library Tool 1.18.1: a cassette card cut off its **SVG** and delete buttons, after a fourth export
+  button was added to a row that does not wrap.
+
 ## [2.19.0] - 2026-10-30
 
 Pins Lab Notebook 0.19.0, Plasmid Editor 0.13.0, MoClo Library Tool 1.18.0, Booking 0.3.0, Seed Bank 0.10.0
