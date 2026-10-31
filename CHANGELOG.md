@@ -8,6 +8,15 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-10-31
+
+Pins Plasmid Editor 0.20.0.
+
+### Added
+- Plasmid Editor 0.20.0: adding a stock by its number now copes with the lab's older numbering. A
+  padded number (GL-G-00178) finds the stock (GL-G-0178), and a number from before the suite
+  (gGL000179) makes a stock of its own with the next number, keeping the tube's label.
+
 ## [2.24.2] - 2026-10-31
 
 Pins Plasmid Editor 0.19.2.
