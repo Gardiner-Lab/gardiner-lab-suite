@@ -8,6 +8,16 @@ and the project uses [semantic versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-10-31
+
+Pins Plasmid Editor 0.18.0.
+
+### Added
+- Plasmid Editor 0.18.0: a base can be called by hand from the chromatogram. Where the basecaller
+  committed to a letter the peak does not support, whoever reads the trace can say what it shows; the
+  read is aligned again, so the mismatch stops being counted. The instrument's own bases are kept, with
+  the call laid over them and who made it recorded.
+
 ## [2.22.0] - 2026-10-31
 
 Pins Plasmid Editor 0.17.0.
